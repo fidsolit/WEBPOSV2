@@ -7,15 +7,20 @@ import {
   Coins, 
   ShoppingBag, 
   Package, 
-  TrendingUp 
+  TrendingUp,
+  UserCheck,
+  AlertCircle
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { useAuth } from '@/hooks/useAuth'
+import Link from 'next/link'
 
 interface DashboardStats {
   todaySales: number
   todayTransactions: number
   totalProducts: number
   lowStockProducts: number
+  pendingUsers: number
 }
 
 export default function DashboardPage() {
@@ -24,8 +29,10 @@ export default function DashboardPage() {
     todayTransactions: 0,
     totalProducts: 0,
     lowStockProducts: 0,
+    pendingUsers: 0,
   })
   const [loading, setLoading] = useState(true)
+  const { permissions } = useAuth()
   const supabase = createClient()
 
   useEffect(() => {
@@ -56,11 +63,23 @@ export default function DashboardPage() {
       const totalProducts = productsData?.length || 0
       const lowStockProducts = productsData?.filter(p => p.stock < 10).length || 0
 
+      // Get pending users count (admin only)
+      let pendingUsers = 0
+      if (permissions.canManageUsers) {
+        const { data: usersData } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('is_active', false)
+        
+        pendingUsers = usersData?.length || 0
+      }
+
       setStats({
         todaySales,
         todayTransactions,
         totalProducts,
         lowStockProducts,
+        pendingUsers,
       })
     } catch (error) {
       console.error('Error loading dashboard data:', error)
@@ -119,6 +138,28 @@ export default function DashboardPage() {
           {format(new Date(), 'EEEE, MMMM d, yyyy')}
         </p>
       </div>
+
+      {/* Pending Users Alert (Admin Only) */}
+      {permissions.canManageUsers && stats.pendingUsers > 0 && (
+        <div className="mb-6">
+          <Link href="/users">
+            <div className="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-4 hover:bg-orange-100 transition-colors cursor-pointer">
+              <div className="flex items-center">
+                <AlertCircle className="w-6 h-6 text-orange-600 mr-3" />
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-orange-800">
+                    {stats.pendingUsers} User{stats.pendingUsers !== 1 ? 's' : ''} Awaiting Approval
+                  </h3>
+                  <p className="text-sm text-orange-700 mt-1">
+                    New user registrations require your approval. Click here to review.
+                  </p>
+                </div>
+                <UserCheck className="w-5 h-5 text-orange-600" />
+              </div>
+            </div>
+          </Link>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

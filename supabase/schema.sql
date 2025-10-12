@@ -115,12 +115,13 @@ CREATE TRIGGER update_sales_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- Function to automatically create profile on user signup
+-- Function to automatically create profile on user signup (inactive by default for approval)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name)
-  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'full_name');
+  INSERT INTO public.profiles (id, email, full_name, is_active)
+  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'full_name', false)
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

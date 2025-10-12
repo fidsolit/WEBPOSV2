@@ -39,18 +39,19 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
       // Ensure profile exists (create if missing)
       const { data: existingProfile } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, is_active')
         .eq('id', user.id)
         .single()
 
       if (!existingProfile) {
-        // Create profile if it doesn't exist
+        // Create profile if it doesn't exist (inactive by default)
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
             id: user.id,
             email: user.email!,
             full_name: user.user_metadata?.full_name || null,
+            is_active: false,
           })
 
         if (profileError) {
@@ -58,6 +59,15 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
           toast.error('Failed to create user profile. Please contact support.')
           return
         }
+        
+        toast.error('Your account requires admin approval before you can make sales.')
+        return
+      }
+
+      // Check if profile is active
+      if (!existingProfile.is_active) {
+        toast.error('Your account is pending admin approval. Please contact an administrator.')
+        return
       }
 
       // Generate sale number

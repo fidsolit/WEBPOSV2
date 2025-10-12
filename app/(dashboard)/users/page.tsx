@@ -121,10 +121,41 @@ function UsersContent() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-          <p className="text-gray-600 mt-2">Manage user roles and permissions</p>
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+            <p className="text-gray-600 mt-2">Approve new users and manage permissions</p>
+          </div>
+          {pendingCount > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-2">
+              <span className="text-orange-700 font-semibold">
+                {pendingCount} user{pendingCount !== 1 ? 's' : ''} pending approval
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex gap-2 mt-4">
+          {(['all', 'pending', 'active', 'inactive'] as const).map((filterOption) => (
+            <button
+              key={filterOption}
+              onClick={() => setFilter(filterOption)}
+              className={`px-4 py-2 rounded-lg font-medium capitalize transition-colors ${
+                filter === filterOption
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+              }`}
+            >
+              {filterOption}
+              {filterOption === 'pending' && pendingCount > 0 && (
+                <span className="ml-2 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -153,8 +184,8 @@ function UsersContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                {filteredUsers.map((user) => (
+                  <tr key={user.id} className={`hover:bg-gray-50 ${!user.is_active ? 'bg-orange-50' : ''}`}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-3">
@@ -182,9 +213,9 @@ function UsersContent() {
                       <span className={`px-3 py-1 text-xs font-medium rounded-full ${
                         user.is_active
                           ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-700'
+                          : 'bg-orange-100 text-orange-700'
                       }`}>
-                        {user.is_active ? 'Active' : 'Inactive'}
+                        {user.is_active ? 'Active' : 'Pending Approval'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
@@ -197,11 +228,13 @@ function UsersContent() {
                       </button>
                       <button
                         onClick={() => handleToggleStatus(user)}
-                        className={`${
-                          user.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'
+                        className={`inline-flex items-center px-3 py-1 rounded-lg font-medium ${
+                          user.is_active 
+                            ? 'bg-red-50 text-red-600 hover:bg-red-100' 
+                            : 'bg-green-50 text-green-600 hover:bg-green-100'
                         }`}
                       >
-                        {user.is_active ? 'Deactivate' : 'Activate'}
+                        {user.is_active ? 'Deactivate' : '✓ Approve'}
                       </button>
                     </td>
                   </tr>
@@ -209,9 +242,11 @@ function UsersContent() {
               </tbody>
             </table>
 
-            {users.length === 0 && (
+            {filteredUsers.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-gray-500">No users found</p>
+                <p className="text-gray-500">
+                  {filter === 'pending' ? 'No pending users' : 'No users found'}
+                </p>
               </div>
             )}
           </div>
