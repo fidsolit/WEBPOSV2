@@ -9,7 +9,8 @@ import {
   Package, 
   TrendingUp,
   UserCheck,
-  AlertCircle
+  AlertCircle,
+  TrendingDown
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { useAuth } from '@/hooks/useAuth'
