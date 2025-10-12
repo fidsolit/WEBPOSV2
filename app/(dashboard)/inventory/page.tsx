@@ -236,6 +236,20 @@ function InventoryContent() {
 
   const stats = getStats()
 
+  const totalPages = Math.ceil(totalCount / itemsPerPage)
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const handleFilterChange = (filter: typeof filterType) => {
+    setFilterType(filter)
+    setCurrentPage(1) // Reset to first page when changing filter
+  }
+
   const adjustmentTypeLabels = {
     restock: { label: 'Restock', color: 'bg-green-100 text-green-700', icon: '📦' },
     loss: { label: 'Loss', color: 'bg-red-100 text-red-700', icon: '❌' },
