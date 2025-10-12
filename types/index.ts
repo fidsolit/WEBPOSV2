@@ -5,10 +5,24 @@ export type Product = Database['public']['Tables']['products']['Row']
 export type Sale = Database['public']['Tables']['sales']['Row']
 export type SaleItem = Database['public']['Tables']['sale_items']['Row']
 export type Profile = Database['public']['Tables']['profiles']['Row']
+export type InventoryAdjustment = Database['public']['Tables']['inventory_adjustments']['Row']
 
 export interface ProductWithCategory extends Product {
   categories?: Category | null
 }
+
+export interface InventoryAdjustmentWithDetails extends InventoryAdjustment {
+  products?: {
+    name: string
+    sku: string
+  }
+  profiles?: {
+    full_name: string | null
+    email: string
+  }
+}
+
+export type AdjustmentType = 'restock' | 'loss' | 'damage' | 'return' | 'correction' | 'expired'
 
 export interface CartItem {
   product: Product

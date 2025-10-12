@@ -226,6 +226,18 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-600">Sales history</p>
               </div>
             </a>
+            {permissions.canManageUsers && (
+              <a
+                href="/inventory"
+                className="flex items-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
+              >
+                <TrendingDown className="w-8 h-8 text-orange-600 mr-4" />
+                <div>
+                  <p className="font-semibold text-gray-900">Inventory</p>
+                  <p className="text-sm text-gray-600">Track losses</p>
+                </div>
+              </a>
+            )}
           </div>
         </CardContent>
       </Card>

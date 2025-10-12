@@ -12,7 +12,8 @@ import {
   X,
   FolderOpen,
   Users,
-  Shield
+  Shield,
+  Archive
 } from 'lucide-react'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -51,6 +52,12 @@ const menuItems = [
     icon: Receipt,
     href: '/sales',
     requiredPermission: 'canViewSales' as const,
+  },
+  {
+    name: 'Inventory',
+    icon: Archive,
+    href: '/inventory',
+    requiredPermission: 'canManageUsers' as const,
   },
   {
     name: 'Users',

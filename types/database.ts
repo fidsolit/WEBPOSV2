@@ -161,6 +161,44 @@ export interface Database {
           created_at?: string
         }
       }
+      inventory_adjustments: {
+        Row: {
+          id: string
+          product_id: string
+          user_id: string
+          adjustment_type: string
+          quantity: number
+          previous_stock: number
+          new_stock: number
+          reason: string | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          user_id: string
+          adjustment_type: string
+          quantity: number
+          previous_stock: number
+          new_stock: number
+          reason?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          user_id?: string
+          adjustment_type?: string
+          quantity?: number
+          previous_stock?: number
+          new_stock?: number
+          reason?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+      }
       profiles: {
         Row: {
           id: string

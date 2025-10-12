@@ -96,11 +96,18 @@ Your system supports these common barcode formats:
 3. Scan product barcode with scanner
 4. Product automatically added to cart! ✅
 
+### **Step 4: Scan in Inventory Adjustments** (Admin Only)
+1. Go to **Inventory** page
+2. Click **"Record Adjustment"**
+3. **Quick Scan** field is auto-focused
+4. Scan or type barcode
+5. Product automatically selected! ✅
+
 ### **Visual Feedback:**
 - **Scanning indicator** appears when barcode detected
-- **Success sound** plays (optional)
+- **Success sound** plays (optional at POS)
 - **Toast notification** shows product name
-- **Cart updates** instantly
+- **Cart/Form updates** instantly
 
 ---
 
@@ -122,13 +129,16 @@ Your system comes with pre-loaded barcodes:
 
 ## 🎨 **Features**
 
-✅ **Automatic Detection** - No need to click anything
-✅ **Real-time Feedback** - See "Scanning: xxxxx" indicator
-✅ **Stock Validation** - Won't add out-of-stock items
+✅ **Automatic Detection** - No need to click anything (POS)
+✅ **Dedicated Scan Field** - Auto-focused input in Inventory (Admin)
+✅ **Real-time Feedback** - See "Scanning..." indicator
+✅ **Stock Validation** - Won't add out-of-stock items (POS)
 ✅ **Error Handling** - Clear messages if product not found
-✅ **Sound Effect** - Beep on successful scan
+✅ **Sound Effect** - Beep on successful scan (POS)
 ✅ **Smart Input Detection** - Doesn't interfere with typing
 ✅ **Fast Performance** - Instant product lookup
+✅ **Auto-Focus** - Ready to scan immediately (Inventory)
+✅ **Dual Method** - Scan OR manual dropdown selection
 
 ---
 

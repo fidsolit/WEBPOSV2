@@ -47,13 +47,21 @@ npm install
 4. Paste it into the SQL editor and click **Run**
 5. You should see success messages for all the tables and functions created
 
-### 5. Create Your First User
+### 5. Create Your First Admin User
+
+**Important:** New signups require admin approval. You need to create your first admin manually:
 
 1. In Supabase dashboard, go to **Authentication** → **Users**
 2. Click **Add User**
 3. Enter an email and password
 4. Click **Create User**
-5. The system will automatically create a profile for this user
+5. Go to **Database** → **Table Editor** → **profiles** table
+6. Find the user you just created
+7. Click **Edit** on that row
+8. Set **role** = `admin` and **is_active** = `true`
+9. Click **Save**
+
+Now you have your first admin who can approve other users!
 
 ### 6. Run the Development Server
 
@@ -74,6 +82,7 @@ Use the email and password you created in Step 5 to login.
 ✅ **Product Management** - Add, edit, and delete products
 ✅ **Sales History** - View past transactions with filtering
 ✅ **Receipt Generation** - Print receipts for transactions
+✅ **Inventory Management** - Track losses, damages, and stock adjustments (Admin only)
 ✅ **Responsive Design** - Works on desktop, tablet, and mobile
 
 ## Sample Data
