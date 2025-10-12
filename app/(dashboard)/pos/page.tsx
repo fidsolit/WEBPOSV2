@@ -1,50 +1,72 @@
-'use client'
+"use client";
 
-import { useEffect, useState, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useCartStore } from '@/store/useCartStore'
-import { Product, ProductWithCategory } from '@/types'
-import { Card, CardContent } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Search, Plus, Minus, Trash2, CreditCard, Scan, Grid3x3, List } from 'lucide-react'
-import toast from 'react-hot-toast'
-import CheckoutModal from '@/components/pos/CheckoutModal'
+import { useEffect, useState, useRef } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useCartStore } from "@/store/useCartStore";
+import { Product, ProductWithCategory } from "@/types";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import {
+  Search,
+  Plus,
+  Minus,
+  Trash2,
+  CreditCard,
+  Scan,
+  Grid3x3,
+  List,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import CheckoutModal from "@/components/pos/CheckoutModal";
 
 export default function POSPage() {
-  const [products, setProducts] = useState<ProductWithCategory[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<ProductWithCategory[]>([])
-  const [categories, setCategories] = useState<string[]>(['All'])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<string>('All')
-  const [loading, setLoading] = useState(true)
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
-  const [barcodeBuffer, setBarcodeBuffer] = useState('')
-  const [isScanning, setIsScanning] = useState(false)
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
-  const barcodeTimeoutRef = useRef<NodeJS.Timeout>()
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  
+  const [products, setProducts] = useState<ProductWithCategory[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<
+    ProductWithCategory[]
+  >([]);
+  const [categories, setCategories] = useState<string[]>(["All"]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [loading, setLoading] = useState(true);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [barcodeBuffer, setBarcodeBuffer] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const barcodeTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
-  const itemsPerPage = 30 // More items per page for POS
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 30; // More items per page for POS
 
-  const { items, addItem, updateQuantity, removeItem, getTotal, getSubtotal, getTax, clearCart } = useCartStore()
-  const supabase = createClient()
+  const {
+    items,
+    addItem,
+    updateQuantity,
+    removeItem,
+    getTotal,
+    getSubtotal,
+    getTax,
+    clearCart,
+  } = useCartStore();
+  const supabase = createClient();
 
   useEffect(() => {
-    loadCategories()
+    loadCategories();
     // Load saved view mode from localStorage
-    const savedViewMode = localStorage.getItem('posViewMode') as 'grid' | 'table'
+    const savedViewMode = localStorage.getItem("posViewMode") as
+      | "grid"
+      | "table";
     if (savedViewMode) {
-      setViewMode(savedViewMode)
+      setViewMode(savedViewMode);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    loadProducts()
-  }, [currentPage, selectedCategory])
+    loadProducts();
+  }, [currentPage, selectedCategory]);
 
   // Barcode scanner listener
   useEffect(() => {
@@ -56,188 +78,193 @@ export default function POSPage() {
         e.target instanceof HTMLTextAreaElement ||
         e.target instanceof HTMLSelectElement
       ) {
-        return
+        return;
       }
 
       // Clear previous timeout
       if (barcodeTimeoutRef.current) {
-        clearTimeout(barcodeTimeoutRef.current)
+        clearTimeout(barcodeTimeoutRef.current);
       }
 
       // Handle Enter key (barcode scanner sends Enter after scanning)
-      if (e.key === 'Enter') {
+      if (e.key === "Enter") {
         if (barcodeBuffer.length >= 8) {
-          setIsScanning(true)
-          searchProductByBarcode(barcodeBuffer)
-          setBarcodeBuffer('')
+          setIsScanning(true);
+          searchProductByBarcode(barcodeBuffer);
+          setBarcodeBuffer("");
           // Clear scanning indicator after 1 second
-          setTimeout(() => setIsScanning(false), 1000)
+          setTimeout(() => setIsScanning(false), 1000);
         }
-        return
+        return;
       }
 
       // Build barcode string (only accept numbers for barcode)
       if (e.key.length === 1 && /[0-9]/.test(e.key)) {
-        setBarcodeBuffer(prev => prev + e.key)
-        setIsScanning(true)
+        setBarcodeBuffer((prev) => prev + e.key);
+        setIsScanning(true);
 
         // Auto-clear buffer after 100ms of no input
         barcodeTimeoutRef.current = setTimeout(() => {
-          setBarcodeBuffer('')
-          setIsScanning(false)
-        }, 100)
+          setBarcodeBuffer("");
+          setIsScanning(false);
+        }, 100);
       }
-    }
+    };
 
-    window.addEventListener('keypress', handleKeyPress)
+    window.addEventListener("keypress", handleKeyPress);
     return () => {
-      window.removeEventListener('keypress', handleKeyPress)
+      window.removeEventListener("keypress", handleKeyPress);
       if (barcodeTimeoutRef.current) {
-        clearTimeout(barcodeTimeoutRef.current)
+        clearTimeout(barcodeTimeoutRef.current);
       }
-    }
-  }, [barcodeBuffer])
+    };
+  }, [barcodeBuffer]);
 
   useEffect(() => {
-    filterProducts()
-  }, [searchQuery, selectedCategory, products])
+    filterProducts();
+  }, [searchQuery, selectedCategory, products]);
 
   const loadCategories = async () => {
     try {
       const { data } = await supabase
-        .from('categories')
-        .select('name')
-        .eq('is_active', true)
-        .order('name')
-      
-      const categoryNames = data?.map(c => c.name) || []
-      setCategories(['All', ...categoryNames])
+        .from("categories")
+        .select("name")
+        .eq("is_active", true)
+        .order("name");
+
+      const categoryNames = data?.map((c) => c.name) || [];
+      setCategories(["All", ...categoryNames]);
     } catch (error) {
-      console.error('Error loading categories:', error)
+      console.error("Error loading categories:", error);
     }
-  }
+  };
 
   const loadProducts = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const from = (currentPage - 1) * itemsPerPage
-      const to = from + itemsPerPage - 1
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
 
       let query = supabase
-        .from('products')
-        .select('*, categories(id, name)', { count: 'exact' })
-        .eq('is_active', true)
-        .order('name')
+        .from("products")
+        .select("*, categories(id, name)", { count: "exact" })
+        .eq("is_active", true)
+        .order("name");
 
       // Apply category filter if not 'All'
-      if (selectedCategory !== 'All') {
+      if (selectedCategory !== "All") {
         // First get category ID
         const { data: categoryData } = await supabase
-          .from('categories')
-          .select('id')
-          .eq('name', selectedCategory)
-          .single()
-        
+          .from("categories")
+          .select("id")
+          .eq("name", selectedCategory)
+          .single();
+
         if (categoryData) {
-          query = query.eq('category_id', categoryData.id)
+          query = query.eq("category_id", categoryData.id);
         }
       }
 
-      const { data, error, count } = await query.range(from, to)
+      const { data, error, count } = await query.range(from, to);
 
-      if (error) throw error
-      setProducts((data as any) || [])
-      setFilteredProducts((data as any) || [])
-      setTotalCount(count || 0)
+      if (error) throw error;
+      setProducts((data as any) || []);
+      setFilteredProducts((data as any) || []);
+      setTotalCount(count || 0);
     } catch (error) {
-      console.error('Error loading products:', error)
-      toast.error('Failed to load products')
+      console.error("Error loading products:", error);
+      toast.error("Failed to load products");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const totalPages = Math.ceil(totalCount / itemsPerPage)
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-      window.scrollTo({ top: 200, behavior: 'smooth' })
+      setCurrentPage(newPage);
+      window.scrollTo({ top: 200, behavior: "smooth" });
     }
-  }
+  };
 
   const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category)
-    setCurrentPage(1) // Reset to first page when changing category
-  }
+    setSelectedCategory(category);
+    setCurrentPage(1); // Reset to first page when changing category
+  };
 
   const filterProducts = () => {
-    let filtered = products
+    let filtered = products;
 
-    // Only apply search filter (category already filtered server-side)
+    // Only apply search filter (category is filtered server-side)
     if (searchQuery) {
-      filtered = filtered.filter(p =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      filtered = filtered.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.barcode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          false
+      );
     }
 
-    setFilteredProducts(filtered)
-  }
+    setFilteredProducts(filtered);
+  };
 
   // Toggle view mode
-  const toggleViewMode = (mode: 'grid' | 'table') => {
-    setViewMode(mode)
-    localStorage.setItem('posViewMode', mode)
-  }
+  const toggleViewMode = (mode: "grid" | "table") => {
+    setViewMode(mode);
+    localStorage.setItem("posViewMode", mode);
+  };
 
   // Search product by barcode
   const searchProductByBarcode = async (barcode: string) => {
     try {
       const { data, error } = await supabase
-        .from('products')
-        .select('*, categories(id, name)')
-        .eq('barcode', barcode)
-        .eq('is_active', true)
-        .single()
+        .from("products")
+        .select("*, categories(id, name)")
+        .eq("barcode", barcode)
+        .eq("is_active", true)
+        .single();
 
       if (error || !data) {
         toast.error(`Product not found: ${barcode}`, {
-          icon: '❌',
+          icon: "❌",
           duration: 2000,
-        })
-        return
+        });
+        return;
       }
 
       // Check stock
       if (data.stock <= 0) {
         toast.error(`${data.name} is out of stock!`, {
-          icon: '⚠️',
-        })
-        return
+          icon: "⚠️",
+        });
+        return;
       }
 
       // Add to cart
-      addItem(data)
+      addItem(data);
       toast.success(`Added: ${data.name}`, {
-        icon: '✅',
+        icon: "✅",
         duration: 2000,
-      })
+      });
 
       // Play success sound (optional)
-      const audio = new Audio('data:audio/wav;base64,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')
-      audio.play().catch(() => {}) // Ignore if audio doesn't play
+      const audio = new Audio(
+        "data:audio/wav;base64,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"
+      );
+      audio.play().catch(() => {}); // Ignore if audio doesn't play
     } catch (error) {
-      console.error('Barcode scan error:', error)
-      toast.error('Failed to scan barcode')
+      console.error("Barcode scan error:", error);
+      toast.error("Failed to scan barcode");
     }
-  }
+  };
 
   const handleCheckoutComplete = () => {
-    clearCart()
-    setIsCheckoutOpen(false)
-    toast.success('Sale completed successfully!')
-  }
+    clearCart();
+    setIsCheckoutOpen(false);
+    toast.success("Sale completed successfully!");
+  };
 
   if (loading) {
     return (
@@ -247,7 +274,7 @@ export default function POSPage() {
           <p className="mt-4 text-gray-600">Loading products...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -256,7 +283,9 @@ export default function POSPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Point of Sale</h1>
-            <p className="text-gray-600 mt-2">Select products to add to cart or scan barcode</p>
+            <p className="text-gray-600 mt-2">
+              Select products to add to cart or scan barcode
+            </p>
           </div>
           {isScanning && (
             <div className="flex items-center gap-2 bg-primary-50 text-primary-700 px-4 py-2 rounded-lg animate-pulse">
@@ -296,8 +325,8 @@ export default function POSPage() {
                     onClick={() => handleCategoryChange(category)}
                     className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
                       selectedCategory === category
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-100'
+                        ? "bg-primary-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-100"
                     }`}
                   >
                     {category}
@@ -308,22 +337,22 @@ export default function POSPage() {
               {/* View Mode Toggle */}
               <div className="flex bg-white border border-gray-300 rounded-lg p-1 gap-1 shrink-0">
                 <button
-                  onClick={() => toggleViewMode('grid')}
+                  onClick={() => toggleViewMode("grid")}
                   className={`p-2 rounded transition-colors ${
-                    viewMode === 'grid'
-                      ? 'bg-primary-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
+                    viewMode === "grid"
+                      ? "bg-primary-600 text-white"
+                      : "text-gray-600 hover:bg-gray-100"
                   }`}
                   title="Grid View"
                 >
                   <Grid3x3 className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => toggleViewMode('table')}
+                  onClick={() => toggleViewMode("table")}
                   className={`p-2 rounded transition-colors ${
-                    viewMode === 'table'
-                      ? 'bg-primary-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
+                    viewMode === "table"
+                      ? "bg-primary-600 text-white"
+                      : "text-gray-600 hover:bg-gray-100"
                   }`}
                   title="Table View"
                 >
@@ -335,7 +364,7 @@ export default function POSPage() {
 
           {/* Products Display */}
           <div className="flex-1 overflow-y-auto">
-            {viewMode === 'grid' ? (
+            {viewMode === "grid" ? (
               // Grid View with Pictures
               <>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -349,15 +378,23 @@ export default function POSPage() {
                         <div className="aspect-square bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg mb-3 flex items-center justify-center">
                           <span className="text-5xl">🛍️</span>
                         </div>
-                        <h3 className="font-semibold text-gray-900 truncate">{product.name}</h3>
-                        <p className="text-xs text-gray-500 mb-2">{product.sku}</p>
+                        <h3 className="font-semibold text-gray-900 truncate">
+                          {product.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 mb-2">
+                          {product.sku}
+                        </p>
                         <div className="flex items-center justify-between">
                           <span className="text-lg font-bold text-primary-600">
                             ₱{product.price.toFixed(2)}
                           </span>
-                          <span className={`text-xs font-medium ${
-                            product.stock < 10 ? 'text-red-600' : 'text-gray-500'
-                          }`}>
+                          <span
+                            className={`text-xs font-medium ${
+                              product.stock < 10
+                                ? "text-red-600"
+                                : "text-gray-500"
+                            }`}
+                          >
                             {product.stock} left
                           </span>
                         </div>
@@ -404,13 +441,17 @@ export default function POSPage() {
                       >
                         <td className="px-4 py-3">
                           <div>
-                            <p className="font-semibold text-gray-900">{product.name}</p>
-                            <p className="text-xs text-gray-500">{product.sku}</p>
+                            <p className="font-semibold text-gray-900">
+                              {product.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {product.sku}
+                            </p>
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
-                            {product.categories?.name || 'N/A'}
+                            {product.categories?.name || "N/A"}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -419,17 +460,21 @@ export default function POSPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`font-semibold ${
-                            product.stock < 10 ? 'text-red-600' : 'text-gray-700'
-                          }`}>
+                          <span
+                            className={`font-semibold ${
+                              product.stock < 10
+                                ? "text-red-600"
+                                : "text-gray-700"
+                            }`}
+                          >
                             {product.stock}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <button
                             onClick={(e) => {
-                              e.stopPropagation()
-                              addItem(product)
+                              e.stopPropagation();
+                              addItem(product);
                             }}
                             className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg transition-colors"
                           >
@@ -454,9 +499,9 @@ export default function POSPage() {
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200">
               <div className="text-sm text-gray-700">
-                Page <span className="font-semibold">{currentPage}</span> of{' '}
-                <span className="font-semibold">{totalPages}</span>
-                {' '}({totalCount} products)
+                Page <span className="font-semibold">{currentPage}</span> of{" "}
+                <span className="font-semibold">{totalPages}</span> (
+                {totalCount} products)
               </div>
 
               <div className="flex gap-2">
@@ -469,15 +514,15 @@ export default function POSPage() {
                 </button>
 
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum
+                  let pageNum;
                   if (totalPages <= 5) {
-                    pageNum = i + 1
+                    pageNum = i + 1;
                   } else if (currentPage <= 3) {
-                    pageNum = i + 1
+                    pageNum = i + 1;
                   } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i
+                    pageNum = totalPages - 4 + i;
                   } else {
-                    pageNum = currentPage - 2 + i
+                    pageNum = currentPage - 2 + i;
                   }
 
                   return (
@@ -486,13 +531,13 @@ export default function POSPage() {
                       onClick={() => handlePageChange(pageNum)}
                       className={`px-3 py-1 rounded-lg font-medium transition-colors ${
                         currentPage === pageNum
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                          ? "bg-primary-600 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
                       }`}
                     >
                       {pageNum}
                     </button>
-                  )
+                  );
                 })}
 
                 <button
@@ -523,11 +568,18 @@ export default function POSPage() {
                 </div>
               ) : (
                 items.map((item) => (
-                  <div key={item.product.id} className="bg-gray-50 rounded-lg p-3">
+                  <div
+                    key={item.product.id}
+                    className="bg-gray-50 rounded-lg p-3"
+                  >
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{item.product.name}</h4>
-                        <p className="text-sm text-gray-600">₱{item.product.price.toFixed(2)}</p>
+                        <h4 className="font-semibold text-gray-900">
+                          {item.product.name}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          ₱{item.product.price.toFixed(2)}
+                        </p>
                       </div>
                       <button
                         onClick={() => removeItem(item.product.id)}
@@ -540,14 +592,20 @@ export default function POSPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          onClick={() =>
+                            updateQuantity(item.product.id, item.quantity - 1)
+                          }
                           className="w-8 h-8 rounded bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100"
                         >
                           <Minus className="w-4 h-4" />
                         </button>
-                        <span className="w-8 text-center font-semibold">{item.quantity}</span>
+                        <span className="w-8 text-center font-semibold">
+                          {item.quantity}
+                        </span>
                         <button
-                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          onClick={() =>
+                            updateQuantity(item.product.id, item.quantity + 1)
+                          }
                           className="w-8 h-8 rounded bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100"
                           disabled={item.quantity >= item.product.stock}
                         >
@@ -567,7 +625,9 @@ export default function POSPage() {
             <div className="p-4 border-t border-gray-200 space-y-3">
               <div className="flex justify-between text-gray-700">
                 <span>Subtotal:</span>
-                <span className="font-semibold">₱{getSubtotal().toFixed(2)}</span>
+                <span className="font-semibold">
+                  ₱{getSubtotal().toFixed(2)}
+                </span>
               </div>
               <div className="flex justify-between text-gray-700">
                 <span>Tax (10%):</span>
@@ -600,6 +660,5 @@ export default function POSPage() {
         onComplete={handleCheckoutComplete}
       />
     </div>
-  )
+  );
 }
-
