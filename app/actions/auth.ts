@@ -80,10 +80,23 @@ export async function signupAction(email: string, password: string, fullName: st
 
 export async function logoutAction() {
   const supabase = createServerClient()
-  await supabase.auth.signOut()
   
+  try {
+    await supabase.auth.signOut()
+  } catch (error) {
+    console.error('Server logout error:', error)
+  }
+  
+  // Clear all Supabase cookies
   const cookieStore = cookies()
-  cookieStore.delete('sb-auth-token')
+  const allCookies = cookieStore.getAll()
+  
+  // Delete all Supabase-related cookies
+  allCookies.forEach(cookie => {
+    if (cookie.name.includes('sb-') || cookie.name.includes('supabase')) {
+      cookieStore.delete(cookie.name)
+    }
+  })
   
   redirect('/login')
 }

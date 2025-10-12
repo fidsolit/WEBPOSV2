@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { loginAction } from '@/app/actions/auth'
 import toast from 'react-hot-toast'
@@ -13,6 +13,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+
+  // Prevent back navigation after logout
+  useEffect(() => {
+    window.history.pushState(null, '', window.location.href)
+    window.onpopstate = () => {
+      window.history.pushState(null, '', window.location.href)
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

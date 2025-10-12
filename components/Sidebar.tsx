@@ -75,10 +75,44 @@ export default function Sidebar() {
   const { profile, permissions } = useAuth()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    toast.success('Logged out successfully')
-    router.push('/login')
-    router.refresh()
+    if (!confirm('Are you sure you want to logout?')) {
+      return
+    }
+
+    try {
+      console.log('Starting logout...')
+      
+      // Sign out from Supabase (this should clear auth cookies automatically)
+      const { error } = await supabase.auth.signOut({ scope: 'global' })
+      
+      if (error) {
+        console.error('Supabase signout error:', error)
+      }
+      
+      // Clear all browser storage
+      if (typeof window !== 'undefined') {
+        // Clear ALL localStorage (fresh start)
+        localStorage.clear()
+        sessionStorage.clear()
+        
+        // Also try to clear cookies manually (belt and suspenders approach)
+        document.cookie.split(";").forEach(function(c) { 
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        })
+      }
+      
+      console.log('Logout complete, storage cleared')
+      toast.success('Logged out successfully')
+      
+      // Immediate hard redirect with cache bust
+      const timestamp = Date.now()
+      window.location.href = `/login?t=${timestamp}`
+      
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Force redirect anyway
+      window.location.href = '/login'
+    }
   }
 
   // Filter menu items based on permissions
