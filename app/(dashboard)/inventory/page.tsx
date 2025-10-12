@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { InventoryAdjustmentWithDetails, ProductWithCategory } from '@/types'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Plus, TrendingDown, AlertTriangle, Package, FileText, Scan, Search } from 'lucide-react'
+import { Plus, TrendingDown, AlertTriangle, Package, FileText, Scan, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
@@ -29,6 +29,11 @@ function InventoryContent() {
   const [barcodeInput, setBarcodeInput] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const itemsPerPage = 20
+  
   const [formData, setFormData] = useState({
     product_id: '',
     adjustment_type: 'loss',
@@ -41,23 +46,34 @@ function InventoryContent() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [currentPage, filterType])
 
   const loadData = async () => {
+    setLoading(true)
     try {
-      // Load adjustments with product and user info
-      const { data: adjustmentsData, error: adjError } = await supabase
+      const from = (currentPage - 1) * itemsPerPage
+      const to = from + itemsPerPage - 1
+
+      // Build query with filter
+      let query = supabase
         .from('inventory_adjustments')
         .select(`
           *,
           products (name, sku),
           profiles (full_name, email)
-        `)
+        `, { count: 'exact' })
         .order('created_at', { ascending: false })
-        .limit(100)
+
+      // Apply type filter
+      if (filterType !== 'all') {
+        query = query.eq('adjustment_type', filterType)
+      }
+
+      const { data: adjustmentsData, error: adjError, count } = await query.range(from, to)
 
       if (adjError) throw adjError
       setAdjustments(adjustmentsData || [])
+      setTotalCount(count || 0)
 
       // Load products with categories
       const { data: productsData, error: prodError } = await supabase
@@ -305,7 +321,7 @@ function InventoryContent() {
         {(['all', 'loss', 'damage', 'expired'] as const).map((filter) => (
           <button
             key={filter}
-            onClick={() => setFilterType(filter)}
+            onClick={() => handleFilterChange(filter)}
             className={`px-4 py-2 rounded-lg font-medium capitalize transition-colors ${
               filterType === filter
                 ? 'bg-primary-600 text-white'
@@ -351,7 +367,7 @@ function InventoryContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredAdjustments.map((adjustment) => {
+                {adjustments.map((adjustment) => {
                   const typeInfo = adjustmentTypeLabels[adjustment.adjustment_type as keyof typeof adjustmentTypeLabels]
                   return (
                     <tr key={adjustment.id} className="hover:bg-gray-50">
@@ -399,7 +415,7 @@ function InventoryContent() {
               </tbody>
             </table>
 
-            {filteredAdjustments.length === 0 && (
+            {adjustments.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-gray-500">No inventory adjustments found</p>
               </div>
@@ -407,6 +423,68 @@ function InventoryContent() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Showing <span className="font-semibold">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+            <span className="font-semibold">
+              {Math.min(currentPage * itemsPerPage, totalCount)}
+            </span>{' '}
+            of <span className="font-semibold">{totalCount}</span> adjustments
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              icon={ChevronLeft}
+            >
+              Previous
+            </Button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum
+                if (totalPages <= 5) {
+                  pageNum = i + 1
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i
+                } else {
+                  pageNum = currentPage - 2 + i
+                }
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              icon={ChevronRight}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Record Adjustment Modal */}
       <Modal

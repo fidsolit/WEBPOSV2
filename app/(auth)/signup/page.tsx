@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { signupAction } from '@/app/actions/auth'
 import toast from 'react-hot-toast'
 import { ShoppingCart, Lock, Mail, User } from 'lucide-react'
 import Link from 'next/link'
@@ -14,7 +14,6 @@ export default function SignUpPage() {
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,34 +32,21 @@ export default function SignUpPage() {
     setLoading(true)
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
-      })
+      const result = await signupAction(email, password, fullName)
 
-      if (error) {
-        toast.error(error.message)
+      if (result.error) {
+        toast.error(result.error)
+        setLoading(false)
         return
       }
 
-      if (data.user) {
-        // Set user as inactive by default (requires admin approval)
-        await supabase
-          .from('profiles')
-          .update({ is_active: false })
-          .eq('id', data.user.id)
-
+      if (result.success) {
         toast.success('Account created! Waiting for admin approval.')
         
-        // Small delay to ensure toast is visible
+        // Redirect to login
         setTimeout(() => {
-          window.location.href = '/login'
-        }, 1000)
+          router.push('/login')
+        }, 1500)
       }
     } catch (error) {
       console.error('Signup error:', error)

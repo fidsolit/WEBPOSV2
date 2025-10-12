@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/types'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Shield, UserPlus, Edit } from 'lucide-react'
+import { Shield, UserPlus, Edit, ChevronLeft, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getRoleLabel, getRoleBadgeColor } from '@/lib/auth/permissions'
 import { Modal } from '@/components/ui/Modal'
@@ -26,6 +26,11 @@ function UsersContent() {
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [newRole, setNewRole] = useState<string>('')
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 15
+  
   const supabase = createClient()
 
   useEffect(() => {
@@ -57,6 +62,23 @@ function UsersContent() {
   })
 
   const pendingCount = users.filter(u => !u.is_active).length
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedUsers = filteredUsers.slice(startIndex, startIndex + itemsPerPage)
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const handleFilterChange = (newFilter: typeof filter) => {
+    setFilter(newFilter)
+    setCurrentPage(1) // Reset to first page
+  }
 
   const handleChangeRole = (user: Profile) => {
     setSelectedUser(user)
@@ -141,7 +163,7 @@ function UsersContent() {
           {(['all', 'pending', 'active', 'inactive'] as const).map((filterOption) => (
             <button
               key={filterOption}
-              onClick={() => setFilter(filterOption)}
+              onClick={() => handleFilterChange(filterOption)}
               className={`px-4 py-2 rounded-lg font-medium capitalize transition-colors ${
                 filter === filterOption
                   ? 'bg-primary-600 text-white'
@@ -184,7 +206,7 @@ function UsersContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
+                {paginatedUsers.map((user) => (
                   <tr key={user.id} className={`hover:bg-gray-50 ${!user.is_active ? 'bg-orange-50' : ''}`}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -242,7 +264,7 @@ function UsersContent() {
               </tbody>
             </table>
 
-            {filteredUsers.length === 0 && (
+            {paginatedUsers.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-gray-500">
                   {filter === 'pending' ? 'No pending users' : 'No users found'}
@@ -252,6 +274,70 @@ function UsersContent() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Showing <span className="font-semibold">{startIndex + 1}</span> to{' '}
+            <span className="font-semibold">
+              {Math.min(startIndex + itemsPerPage, filteredUsers.length)}
+            </span>{' '}
+            of <span className="font-semibold">{filteredUsers.length}</span> users
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              icon={ChevronLeft}
+              size="sm"
+            >
+              Previous
+            </Button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum
+                if (totalPages <= 5) {
+                  pageNum = i + 1
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i
+                } else {
+                  pageNum = currentPage - 2 + i
+                }
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`px-3 py-1 rounded-lg font-medium transition-colors text-sm ${
+                      currentPage === pageNum
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              icon={ChevronRight}
+              size="sm"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Change Role Modal */}
       <Modal

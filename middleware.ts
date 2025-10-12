@@ -3,26 +3,29 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  
-  // Get auth token from cookies
-  const token = req.cookies.get('sb-access-token')?.value || 
-                req.cookies.get('supabase-auth-token')?.value
+  // Check for Supabase auth cookies (Supabase v2 uses these cookie names)
+  const allCookies = req.cookies.getAll()
+  const hasAuthCookie = allCookies.some(cookie => 
+    cookie.name.includes('sb-') && cookie.name.includes('auth-token')
+  )
 
-  // Simple check - if no token and accessing protected route, redirect to login
+  // Protected paths that require authentication
   const protectedPaths = ['/dashboard', '/pos', '/products', '/categories', '/sales', '/inventory', '/users']
   const isProtectedPath = protectedPaths.some(path => req.nextUrl.pathname.startsWith(path))
   
-  if (!token && isProtectedPath) {
-    return NextResponse.redirect(new URL('/login', req.url))
+  // Redirect to login if accessing protected path without auth
+  if (!hasAuthCookie && isProtectedPath) {
+    const redirectUrl = new URL('/login', req.url)
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // If has token and accessing auth pages, redirect to dashboard
-  if (token && (req.nextUrl.pathname.startsWith('/login') || req.nextUrl.pathname.startsWith('/signup'))) {
-    return NextResponse.redirect(new URL('/dashboard', req.url))
+  // Redirect to dashboard if logged in user tries to access auth pages
+  if (hasAuthCookie && (req.nextUrl.pathname === '/login' || req.nextUrl.pathname === '/signup')) {
+    const redirectUrl = new URL('/dashboard', req.url)
+    return NextResponse.redirect(redirectUrl)
   }
 
-  return res
+  return NextResponse.next()
 }
 
 export const config = {

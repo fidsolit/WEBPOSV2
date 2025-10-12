@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Product, ProductWithCategory } from '@/types'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Plus, Edit, Trash2, Search } from 'lucide-react'
+import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import ProductModal from '@/components/products/ProductModal'
 import { useAuth } from '@/hooks/useAuth'
@@ -18,32 +18,52 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const itemsPerPage = 25
 
   const supabase = createClient()
 
   useEffect(() => {
     loadProducts()
-  }, [])
+  }, [currentPage])
 
   useEffect(() => {
     filterProducts()
   }, [searchQuery, products])
 
   const loadProducts = async () => {
+    setLoading(true)
     try {
-      const { data, error } = await supabase
+      const from = (currentPage - 1) * itemsPerPage
+      const to = from + itemsPerPage - 1
+
+      const { data, error, count } = await supabase
         .from('products')
-        .select('*, categories(id, name)')
+        .select('*, categories(id, name)', { count: 'exact' })
         .order('name')
+        .range(from, to)
 
       if (error) throw error
       setProducts((data as any) || [])
       setFilteredProducts((data as any) || [])
+      setTotalCount(count || 0)
     } catch (error) {
       console.error('Error loading products:', error)
       toast.error('Failed to load products')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const totalPages = Math.ceil(totalCount / itemsPerPage)
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
@@ -249,6 +269,68 @@ export default function ProductsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Showing <span className="font-semibold">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+            <span className="font-semibold">
+              {Math.min(currentPage * itemsPerPage, totalCount)}
+            </span>{' '}
+            of <span className="font-semibold">{totalCount}</span> products
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              icon={ChevronLeft}
+            >
+              Previous
+            </Button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum
+                if (totalPages <= 5) {
+                  pageNum = i + 1
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i
+                } else {
+                  pageNum = currentPage - 2 + i
+                }
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              icon={ChevronRight}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Product Modal */}
       <ProductModal

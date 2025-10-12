@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Sale, SaleItem } from '@/types'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Search, Eye, Printer, Download, Calendar } from 'lucide-react'
+import { Search, Eye, Printer, Download, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import SaleDetailsModal from '@/components/sales/SaleDetailsModal'
@@ -26,31 +26,61 @@ export default function SalesPage() {
   const [selectedSale, setSelectedSale] = useState<SaleWithItems | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'all'>('all')
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const itemsPerPage = 20
 
   const supabase = createClient()
 
   useEffect(() => {
     loadSales()
-  }, [])
+  }, [currentPage, dateFilter])
 
   useEffect(() => {
     filterSales()
-  }, [searchQuery, dateFilter, sales])
+  }, [searchQuery, sales])
 
   const loadSales = async () => {
+    setLoading(true)
     try {
-      const { data, error } = await supabase
+      // Calculate range for pagination
+      const from = (currentPage - 1) * itemsPerPage
+      const to = from + itemsPerPage - 1
+
+      // Build query with date filter
+      let query = supabase
         .from('sales')
         .select(`
           *,
           sale_items (*),
           profiles (full_name, email)
-        `)
+        `, { count: 'exact' })
         .order('created_at', { ascending: false })
+
+      // Apply date filter
+      if (dateFilter !== 'all') {
+        const now = new Date()
+        let startDate = new Date()
+        
+        if (dateFilter === 'today') {
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        } else if (dateFilter === 'week') {
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        } else if (dateFilter === 'month') {
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        }
+        
+        query = query.gte('created_at', startDate.toISOString())
+      }
+
+      const { data, error, count } = await query.range(from, to)
 
       if (error) throw error
       setSales(data || [])
       setFilteredSales(data || [])
+      setTotalCount(count || 0)
     } catch (error) {
       console.error('Error loading sales:', error)
       toast.error('Failed to load sales')
@@ -62,20 +92,7 @@ export default function SalesPage() {
   const filterSales = () => {
     let filtered = sales
 
-    // Date filter
-    const now = new Date()
-    if (dateFilter === 'today') {
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      filtered = filtered.filter(s => new Date(s.created_at) >= today)
-    } else if (dateFilter === 'week') {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      filtered = filtered.filter(s => new Date(s.created_at) >= weekAgo)
-    } else if (dateFilter === 'month') {
-      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      filtered = filtered.filter(s => new Date(s.created_at) >= monthAgo)
-    }
-
-    // Search filter
+    // Search filter (date filter already applied in loadSales)
     if (searchQuery) {
       filtered = filtered.filter(s =>
         s.sale_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -84,6 +101,20 @@ export default function SalesPage() {
     }
 
     setFilteredSales(filtered)
+  }
+
+  const totalPages = Math.ceil(totalCount / itemsPerPage)
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  const handleDateFilterChange = (filter: typeof dateFilter) => {
+    setDateFilter(filter)
+    setCurrentPage(1) // Reset to first page when filter changes
   }
 
   const handleViewDetails = (sale: SaleWithItems) => {
@@ -171,7 +202,7 @@ export default function SalesPage() {
             {(['today', 'week', 'month', 'all'] as const).map((filter) => (
               <button
                 key={filter}
-                onClick={() => setDateFilter(filter)}
+                onClick={() => handleDateFilterChange(filter)}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors capitalize ${
                   dateFilter === filter
                     ? 'bg-primary-600 text-white'
@@ -275,6 +306,68 @@ export default function SalesPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Showing <span className="font-semibold">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+            <span className="font-semibold">
+              {Math.min(currentPage * itemsPerPage, totalCount)}
+            </span>{' '}
+            of <span className="font-semibold">{totalCount}</span> sales
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              icon={ChevronLeft}
+            >
+              Previous
+            </Button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum
+                if (totalPages <= 5) {
+                  pageNum = i + 1
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i
+                } else {
+                  pageNum = currentPage - 2 + i
+                }
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                      currentPage === pageNum
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              icon={ChevronRight}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Sale Details Modal */}
       <SaleDetailsModal

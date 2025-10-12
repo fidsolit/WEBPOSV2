@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { loginAction } from '@/app/actions/auth'
 import toast from 'react-hot-toast'
 import { ShoppingCart, Lock, Mail } from 'lucide-react'
 import Link from 'next/link'
@@ -12,55 +12,34 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
+  const [isPending, startTransition] = useTransition()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      const result = await loginAction(email, password)
 
-      if (error) {
-        toast.error(error.message)
+      if (result.error) {
+        toast.error(result.error)
         setLoading(false)
         return
       }
 
-      if (data.user) {
-        console.log('User logged in:', data.user.email)
-        
-        // Check if user is approved (active)
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('is_active, role')
-          .eq('id', data.user.id)
-          .single()
-
-        if (profileError) {
-          console.error('Profile error:', profileError)
-          toast.error('Error loading user profile. Please try again.')
-          setLoading(false)
-          return
-        }
-
-        if (!profile?.is_active) {
-          await supabase.auth.signOut()
-          toast.error('Your account is pending admin approval. Please wait for activation.')
-          setLoading(false)
-          return
-        }
-
-        console.log('User approved, redirecting to dashboard...')
+      if (result.success) {
         toast.success('Login successful!')
         
-        // Add small delay to ensure session is saved
+        // Use Next.js navigation with transition
+        startTransition(() => {
+          router.push('/dashboard')
+          router.refresh()
+        })
+        
+        // Fallback: Hard redirect after delay if router doesn't work
         setTimeout(() => {
           window.location.href = '/dashboard'
-        }, 500)
+        }, 1500)
       }
     } catch (error) {
       console.error('Login error:', error)
