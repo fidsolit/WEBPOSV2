@@ -67,7 +67,7 @@ function InventoryContent() {
         .order('name')
 
       if (prodError) throw prodError
-      setProducts(productsData || [])
+      setProducts((productsData as any) || [])
     } catch (error) {
       console.error('Error loading inventory data:', error)
       toast.error('Failed to load inventory data')

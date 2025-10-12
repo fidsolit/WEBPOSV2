@@ -101,8 +101,8 @@ export default function POSPage() {
         .order('name')
 
       if (error) throw error
-      setProducts(data || [])
-      setFilteredProducts(data || [])
+      setProducts((data as any) || [])
+      setFilteredProducts((data as any) || [])
     } catch (error) {
       console.error('Error loading products:', error)
       toast.error('Failed to load products')

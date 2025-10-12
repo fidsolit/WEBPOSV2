@@ -26,30 +26,45 @@ export default function LoginPage() {
 
       if (error) {
         toast.error(error.message)
+        setLoading(false)
         return
       }
 
       if (data.user) {
+        console.log('User logged in:', data.user.email)
+        
         // Check if user is approved (active)
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('is_active')
+          .select('is_active, role')
           .eq('id', data.user.id)
           .single()
+
+        if (profileError) {
+          console.error('Profile error:', profileError)
+          toast.error('Error loading user profile. Please try again.')
+          setLoading(false)
+          return
+        }
 
         if (!profile?.is_active) {
           await supabase.auth.signOut()
           toast.error('Your account is pending admin approval. Please wait for activation.')
+          setLoading(false)
           return
         }
 
+        console.log('User approved, redirecting to dashboard...')
         toast.success('Login successful!')
-        router.push('/dashboard')
-        router.refresh()
+        
+        // Add small delay to ensure session is saved
+        setTimeout(() => {
+          window.location.href = '/dashboard'
+        }, 500)
       }
     } catch (error) {
+      console.error('Login error:', error)
       toast.error('An error occurred during login')
-    } finally {
       setLoading(false)
     }
   }

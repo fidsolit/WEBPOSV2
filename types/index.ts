@@ -8,7 +8,12 @@ export type Profile = Database['public']['Tables']['profiles']['Row']
 export type InventoryAdjustment = Database['public']['Tables']['inventory_adjustments']['Row']
 
 export interface ProductWithCategory extends Product {
-  categories?: Category | null
+  categories?: {
+    id: string
+    name: string
+    description?: string | null
+    is_active?: boolean
+  } | null
 }
 
 export interface InventoryAdjustmentWithDetails extends InventoryAdjustment {

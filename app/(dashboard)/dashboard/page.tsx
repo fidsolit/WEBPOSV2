@@ -38,7 +38,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboardData()
-  }, [])
+  }, [permissions])
 
   const loadDashboardData = async () => {
     try {

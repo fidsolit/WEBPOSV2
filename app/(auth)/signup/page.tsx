@@ -56,12 +56,15 @@ export default function SignUpPage() {
           .eq('id', data.user.id)
 
         toast.success('Account created! Waiting for admin approval.')
-        router.push('/login')
-        router.refresh()
+        
+        // Small delay to ensure toast is visible
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 1000)
       }
     } catch (error) {
+      console.error('Signup error:', error)
       toast.error('An error occurred during sign up')
-    } finally {
       setLoading(false)
     }
   }

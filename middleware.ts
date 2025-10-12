@@ -5,33 +5,20 @@ import type { NextRequest } from 'next/server'
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
   
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        persistSession: false,
-      },
-    }
-  )
+  // Get auth token from cookies
+  const token = req.cookies.get('sb-access-token')?.value || 
+                req.cookies.get('supabase-auth-token')?.value
 
-  const authHeader = req.headers.get('authorization')
-  if (authHeader) {
-    const token = authHeader.replace('Bearer ', '')
-    await supabase.auth.setSession({ access_token: token, refresh_token: '' })
-  }
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  // If user is not logged in and trying to access protected routes
-  if (!session && !req.nextUrl.pathname.startsWith('/login') && !req.nextUrl.pathname.startsWith('/signup')) {
+  // Simple check - if no token and accessing protected route, redirect to login
+  const protectedPaths = ['/dashboard', '/pos', '/products', '/categories', '/sales', '/inventory', '/users']
+  const isProtectedPath = protectedPaths.some(path => req.nextUrl.pathname.startsWith(path))
+  
+  if (!token && isProtectedPath) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // If user is logged in and trying to access login/signup pages
-  if (session && (req.nextUrl.pathname.startsWith('/login') || req.nextUrl.pathname.startsWith('/signup'))) {
+  // If has token and accessing auth pages, redirect to dashboard
+  if (token && (req.nextUrl.pathname.startsWith('/login') || req.nextUrl.pathname.startsWith('/signup'))) {
     return NextResponse.redirect(new URL('/dashboard', req.url))
   }
 
