@@ -194,16 +194,17 @@ export default function POSPage() {
   };
 
   const filterProducts = () => {
+    // Category filtering is done server-side in loadProducts()
+    // This only handles client-side search on the current page
     let filtered = products;
 
-    // Only apply search filter (category is filtered server-side)
     if (searchQuery) {
-      filtered = filtered.filter(
+      const query = searchQuery.toLowerCase();
+      filtered = products.filter(
         (p) =>
-          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.barcode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          false
+          p.name.toLowerCase().includes(query) ||
+          p.sku.toLowerCase().includes(query) ||
+          (p.barcode && p.barcode.toLowerCase().includes(query))
       );
     }
 

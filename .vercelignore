@@ -1,0 +1,8 @@
+# Vercel ignore file
+# This ensures fresh builds
+
+.env
+.env.local
+node_modules
+.next
+
