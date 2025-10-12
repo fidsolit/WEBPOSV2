@@ -8,7 +8,7 @@ import { useCartStore } from '@/store/useCartStore'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { PaymentMethod } from '@/types'
-import { CreditCard, Wallet, DollarSign } from 'lucide-react'
+import { CreditCard, Wallet, Banknote } from 'lucide-react'
 
 interface CheckoutModalProps {
   isOpen: boolean
@@ -124,7 +124,7 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
   }
 
   const paymentMethods = [
-    { value: 'cash' as PaymentMethod, label: 'Cash', icon: DollarSign },
+    { value: 'cash' as PaymentMethod, label: 'Cash', icon: Banknote },
     { value: 'card' as PaymentMethod, label: 'Card', icon: CreditCard },
     { value: 'digital_wallet' as PaymentMethod, label: 'Digital Wallet', icon: Wallet },
   ]

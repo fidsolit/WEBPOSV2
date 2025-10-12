@@ -30,6 +30,19 @@ export default function LoginPage() {
       }
 
       if (data.user) {
+        // Check if user is approved (active)
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_active')
+          .eq('id', data.user.id)
+          .single()
+
+        if (!profile?.is_active) {
+          await supabase.auth.signOut()
+          toast.error('Your account is pending admin approval. Please wait for activation.')
+          return
+        }
+
         toast.success('Login successful!')
         router.push('/dashboard')
         router.refresh()

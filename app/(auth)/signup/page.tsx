@@ -49,7 +49,13 @@ export default function SignUpPage() {
       }
 
       if (data.user) {
-        toast.success('Account created successfully! Please login.')
+        // Set user as inactive by default (requires admin approval)
+        await supabase
+          .from('profiles')
+          .update({ is_active: false })
+          .eq('id', data.user.id)
+
+        toast.success('Account created! Waiting for admin approval.')
         router.push('/login')
         router.refresh()
       }

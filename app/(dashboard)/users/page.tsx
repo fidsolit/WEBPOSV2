@@ -22,6 +22,7 @@ export default function UsersPage() {
 function UsersContent() {
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'inactive'>('all')
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [newRole, setNewRole] = useState<string>('')
@@ -47,6 +48,15 @@ function UsersContent() {
       setLoading(false)
     }
   }
+
+  const filteredUsers = users.filter(user => {
+    if (filter === 'pending') return !user.is_active
+    if (filter === 'active') return user.is_active
+    if (filter === 'inactive') return !user.is_active
+    return true // 'all'
+  })
+
+  const pendingCount = users.filter(u => !u.is_active).length
 
   const handleChangeRole = (user: Profile) => {
     setSelectedUser(user)
@@ -75,6 +85,13 @@ function UsersContent() {
   }
 
   const handleToggleStatus = async (user: Profile) => {
+    const action = user.is_active ? 'deactivate' : 'approve'
+    const confirmMessage = user.is_active 
+      ? `Are you sure you want to deactivate ${user.email}?`
+      : `Approve ${user.email} to access the system?`
+
+    if (!confirm(confirmMessage)) return
+
     try {
       const { error } = await supabase
         .from('profiles')
@@ -83,7 +100,7 @@ function UsersContent() {
 
       if (error) throw error
 
-      toast.success(`User ${user.is_active ? 'deactivated' : 'activated'} successfully`)
+      toast.success(`User ${user.is_active ? 'deactivated' : 'approved'} successfully`)
       loadUsers()
     } catch (error: any) {
       console.error('Error toggling status:', error)

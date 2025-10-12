@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { 
-  DollarSign, 
+  Coins, 
   ShoppingBag, 
   Package, 
   TrendingUp 
@@ -73,7 +73,7 @@ export default function DashboardPage() {
     {
       title: "Today's Sales",
       value: `₱${stats.todaySales.toFixed(2)}`,
-      icon: DollarSign,
+      icon: Coins,
       color: 'bg-green-500',
       change: '+12.5%',
     },
@@ -179,7 +179,7 @@ export default function DashboardPage() {
               href="/sales"
               className="flex items-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
             >
-              <DollarSign className="w-8 h-8 text-green-600 mr-4" />
+              <Coins className="w-8 h-8 text-green-600 mr-4" />
               <div>
                 <p className="font-semibold text-gray-900">View Sales</p>
                 <p className="text-sm text-gray-600">Sales history</p>
