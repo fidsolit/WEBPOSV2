@@ -14,6 +14,7 @@ import CheckoutModal from '@/components/pos/CheckoutModal'
 export default function POSPage() {
   const [products, setProducts] = useState<ProductWithCategory[]>([])
   const [filteredProducts, setFilteredProducts] = useState<ProductWithCategory[]>([])
+  const [categories, setCategories] = useState<string[]>(['All'])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [loading, setLoading] = useState(true)
@@ -23,18 +24,27 @@ export default function POSPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
   const barcodeTimeoutRef = useRef<NodeJS.Timeout>()
   const searchInputRef = useRef<HTMLInputElement>(null)
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const itemsPerPage = 30 // More items per page for POS
 
   const { items, addItem, updateQuantity, removeItem, getTotal, getSubtotal, getTax, clearCart } = useCartStore()
   const supabase = createClient()
 
   useEffect(() => {
-    loadProducts()
+    loadCategories()
     // Load saved view mode from localStorage
     const savedViewMode = localStorage.getItem('posViewMode') as 'grid' | 'table'
     if (savedViewMode) {
       setViewMode(savedViewMode)
     }
   }, [])
+
+  useEffect(() => {
+    loadProducts()
+  }, [currentPage, selectedCategory])
 
   // Barcode scanner listener
   useEffect(() => {
@@ -92,17 +102,53 @@ export default function POSPage() {
     filterProducts()
   }, [searchQuery, selectedCategory, products])
 
-  const loadProducts = async () => {
+  const loadCategories = async () => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, categories(id, name)')
+      const { data } = await supabase
+        .from('categories')
+        .select('name')
         .eq('is_active', true)
         .order('name')
+      
+      const categoryNames = data?.map(c => c.name) || []
+      setCategories(['All', ...categoryNames])
+    } catch (error) {
+      console.error('Error loading categories:', error)
+    }
+  }
+
+  const loadProducts = async () => {
+    setLoading(true)
+    try {
+      const from = (currentPage - 1) * itemsPerPage
+      const to = from + itemsPerPage - 1
+
+      let query = supabase
+        .from('products')
+        .select('*, categories(id, name)', { count: 'exact' })
+        .eq('is_active', true)
+        .order('name')
+
+      // Apply category filter if not 'All'
+      if (selectedCategory !== 'All') {
+        // First get category ID
+        const { data: categoryData } = await supabase
+          .from('categories')
+          .select('id')
+          .eq('name', selectedCategory)
+          .single()
+        
+        if (categoryData) {
+          query = query.eq('category_id', categoryData.id)
+        }
+      }
+
+      const { data, error, count } = await query.range(from, to)
 
       if (error) throw error
       setProducts((data as any) || [])
       setFilteredProducts((data as any) || [])
+      setTotalCount(count || 0)
     } catch (error) {
       console.error('Error loading products:', error)
       toast.error('Failed to load products')
@@ -111,13 +157,24 @@ export default function POSPage() {
     }
   }
 
+  const totalPages = Math.ceil(totalCount / itemsPerPage)
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
+      window.scrollTo({ top: 200, behavior: 'smooth' })
+    }
+  }
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category)
+    setCurrentPage(1) // Reset to first page when changing category
+  }
+
   const filterProducts = () => {
     let filtered = products
 
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(p => p.categories?.name === selectedCategory)
-    }
-
+    // Only apply search filter (category already filtered server-side)
     if (searchQuery) {
       filtered = filtered.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -127,8 +184,6 @@ export default function POSPage() {
 
     setFilteredProducts(filtered)
   }
-
-  const categories = ['All', ...Array.from(new Set(products.map(p => p.categories?.name).filter(Boolean) as string[]))]
 
   // Toggle view mode
   const toggleViewMode = (mode: 'grid' | 'table') => {
@@ -238,7 +293,7 @@ export default function POSPage() {
                 {categories.map((category) => (
                   <button
                     key={category}
-                    onClick={() => setSelectedCategory(category)}
+                    onClick={() => handleCategoryChange(category)}
                     className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
                       selectedCategory === category
                         ? 'bg-primary-600 text-white'
@@ -394,6 +449,62 @@ export default function POSPage() {
               </div>
             )}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200">
+              <div className="text-sm text-gray-700">
+                Page <span className="font-semibold">{currentPage}</span> of{' '}
+                <span className="font-semibold">{totalPages}</span>
+                {' '}({totalCount} products)
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  ← Prev
+                </button>
+
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum
+                  if (totalPages <= 5) {
+                    pageNum = i + 1
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i
+                  } else {
+                    pageNum = currentPage - 2 + i
+                  }
+
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`px-3 py-1 rounded-lg font-medium transition-colors ${
+                        currentPage === pageNum
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Cart Section */}
