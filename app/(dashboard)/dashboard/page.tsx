@@ -1,0 +1,194 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { 
+  DollarSign, 
+  ShoppingBag, 
+  Package, 
+  TrendingUp 
+} from 'lucide-react'
+import { format } from 'date-fns'
+
+interface DashboardStats {
+  todaySales: number
+  todayTransactions: number
+  totalProducts: number
+  lowStockProducts: number
+}
+
+export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats>({
+    todaySales: 0,
+    todayTransactions: 0,
+    totalProducts: 0,
+    lowStockProducts: 0,
+  })
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
+
+  const loadDashboardData = async () => {
+    try {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      // Get today's sales
+      const { data: salesData } = await supabase
+        .from('sales')
+        .select('total, id')
+        .gte('created_at', today.toISOString())
+        .eq('status', 'completed')
+
+      const todaySales = salesData?.reduce((sum, sale) => sum + Number(sale.total), 0) || 0
+      const todayTransactions = salesData?.length || 0
+
+      // Get products stats
+      const { data: productsData } = await supabase
+        .from('products')
+        .select('stock')
+        .eq('is_active', true)
+
+      const totalProducts = productsData?.length || 0
+      const lowStockProducts = productsData?.filter(p => p.stock < 10).length || 0
+
+      setStats({
+        todaySales,
+        todayTransactions,
+        totalProducts,
+        lowStockProducts,
+      })
+    } catch (error) {
+      console.error('Error loading dashboard data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const statCards = [
+    {
+      title: "Today's Sales",
+      value: `₱${stats.todaySales.toFixed(2)}`,
+      icon: DollarSign,
+      color: 'bg-green-500',
+      change: '+12.5%',
+    },
+    {
+      title: 'Transactions',
+      value: stats.todayTransactions.toString(),
+      icon: ShoppingBag,
+      color: 'bg-blue-500',
+      change: '+8.2%',
+    },
+    {
+      title: 'Total Products',
+      value: stats.totalProducts.toString(),
+      icon: Package,
+      color: 'bg-purple-500',
+      change: '—',
+    },
+    {
+      title: 'Low Stock Items',
+      value: stats.lowStockProducts.toString(),
+      icon: TrendingUp,
+      color: 'bg-orange-500',
+      change: '-3.1%',
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-gray-600 mt-2">
+          {format(new Date(), 'EEEE, MMMM d, yyyy')}
+        </p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {statCards.map((stat, index) => {
+          const Icon = stat.icon
+          return (
+            <Card key={index}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      <span className={stat.change.startsWith('+') ? 'text-green-600' : stat.change.startsWith('-') ? 'text-red-600' : ''}>
+                        {stat.change}
+                      </span>
+                      {' '}from yesterday
+                    </p>
+                  </div>
+                  <div className={`${stat.color} p-3 rounded-full`}>
+                    <Icon className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <a
+              href="/pos"
+              className="flex items-center p-4 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+            >
+              <ShoppingBag className="w-8 h-8 text-primary-600 mr-4" />
+              <div>
+                <p className="font-semibold text-gray-900">New Sale</p>
+                <p className="text-sm text-gray-600">Start a transaction</p>
+              </div>
+            </a>
+            <a
+              href="/products"
+              className="flex items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+            >
+              <Package className="w-8 h-8 text-purple-600 mr-4" />
+              <div>
+                <p className="font-semibold text-gray-900">Manage Products</p>
+                <p className="text-sm text-gray-600">View inventory</p>
+              </div>
+            </a>
+            <a
+              href="/sales"
+              className="flex items-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+            >
+              <DollarSign className="w-8 h-8 text-green-600 mr-4" />
+              <div>
+                <p className="font-semibold text-gray-900">View Sales</p>
+                <p className="text-sm text-gray-600">Sales history</p>
+              </div>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
