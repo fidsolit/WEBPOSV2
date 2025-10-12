@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { InventoryAdjustmentWithDetails, Product } from '@/types'
+import { InventoryAdjustmentWithDetails, ProductWithCategory } from '@/types'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Plus, TrendingDown, AlertTriangle, Package, FileText, Scan, Search } from 'lucide-react'
@@ -22,7 +22,7 @@ export default function InventoryPage() {
 
 function InventoryContent() {
   const [adjustments, setAdjustments] = useState<InventoryAdjustmentWithDetails[]>([])
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<ProductWithCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [filterType, setFilterType] = useState<'all' | 'loss' | 'damage' | 'expired'>('all')

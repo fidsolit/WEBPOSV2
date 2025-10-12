@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Product } from '@/types'
+import { Product, ProductWithCategory } from '@/types'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Plus, Edit, Trash2, Search } from 'lucide-react'
@@ -12,8 +12,8 @@ import { useAuth } from '@/hooks/useAuth'
 
 export default function ProductsPage() {
   const { permissions } = useAuth()
-  const [products, setProducts] = useState<Product[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<ProductWithCategory[]>([])
+  const [filteredProducts, setFilteredProducts] = useState<ProductWithCategory[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)

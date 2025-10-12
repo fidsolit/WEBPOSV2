@@ -52,7 +52,7 @@ export default function DashboardPage() {
         .gte('created_at', today.toISOString())
         .eq('status', 'completed')
 
-      const todaySales = salesData?.reduce((sum, sale) => sum + Number(sale.total), 0) || 0
+      const todaySales = salesData?.reduce((sum: number, sale: any) => sum + Number(sale.total), 0) || 0
       const todayTransactions = salesData?.length || 0
 
       // Get products stats
@@ -62,7 +62,7 @@ export default function DashboardPage() {
         .eq('is_active', true)
 
       const totalProducts = productsData?.length || 0
-      const lowStockProducts = productsData?.filter(p => p.stock < 10).length || 0
+      const lowStockProducts = productsData?.filter((p: any) => p.stock < 10).length || 0
 
       // Get pending users count (admin only)
       let pendingUsers = 0

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useCartStore } from '@/store/useCartStore'
-import { Product } from '@/types'
+import { Product, ProductWithCategory } from '@/types'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -12,8 +12,8 @@ import toast from 'react-hot-toast'
 import CheckoutModal from '@/components/pos/CheckoutModal'
 
 export default function POSPage() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<ProductWithCategory[]>([])
+  const [filteredProducts, setFilteredProducts] = useState<ProductWithCategory[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [loading, setLoading] = useState(true)
@@ -128,7 +128,7 @@ export default function POSPage() {
     setFilteredProducts(filtered)
   }
 
-  const categories = ['All', ...Array.from(new Set(products.map(p => p.categories?.name).filter(Boolean)))]
+  const categories = ['All', ...Array.from(new Set(products.map(p => p.categories?.name).filter(Boolean) as string[]))]
 
   // Toggle view mode
   const toggleViewMode = (mode: 'grid' | 'table') => {
