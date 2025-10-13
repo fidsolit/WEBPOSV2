@@ -115,7 +115,7 @@ export async function logoutAction() {
   
   // Delete all auth-related cookies
   allCookies.forEach(cookie => {
-    if (cookie.name.includes('sb-') || cookie.name.includes('supabase') || cookie.name.includes('jwt-')) {
+    if (cookie.name.includes('sb-') || cookie.name.includes('supabase') || cookie.name.includes('jwt-') || cookie.name.includes('persist:')) {
       cookieStore.delete(cookie.name)
     }
   })

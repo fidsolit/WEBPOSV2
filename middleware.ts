@@ -9,18 +9,24 @@ export async function middleware(req: NextRequest) {
     cookie.name.includes('sb-') && cookie.name.includes('auth-token')
   )
 
+  // Check for JWT token cookie (enhanced security)
+  const hasJWTToken = req.cookies.has('jwt-token')
+
+  // User is authenticated if they have either Supabase cookie or JWT token
+  const isAuthenticated = hasAuthCookie || hasJWTToken
+
   // Protected paths that require authentication
   const protectedPaths = ['/dashboard', '/pos', '/products', '/categories', '/sales', '/inventory', '/users']
   const isProtectedPath = protectedPaths.some(path => req.nextUrl.pathname.startsWith(path))
   
   // Redirect to login if accessing protected path without auth
-  if (!hasAuthCookie && isProtectedPath) {
+  if (!isAuthenticated && isProtectedPath) {
     const redirectUrl = new URL('/login', req.url)
     return NextResponse.redirect(redirectUrl)
   }
 
   // Redirect to dashboard if logged in user tries to access auth pages
-  if (hasAuthCookie && (req.nextUrl.pathname === '/login' || req.nextUrl.pathname === '/signup')) {
+  if (isAuthenticated && (req.nextUrl.pathname === '/login' || req.nextUrl.pathname === '/signup')) {
     const redirectUrl = new URL('/dashboard', req.url)
     return NextResponse.redirect(redirectUrl)
   }

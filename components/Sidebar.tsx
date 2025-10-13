@@ -21,6 +21,10 @@ import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/hooks/useAuth'
 import { getRoleLabel, getRoleBadgeColor } from '@/lib/auth/permissions'
+import { useAppDispatch } from '@/store/hooks'
+import { clearAuth } from '@/store/slices/authSlice'
+import { clearCart } from '@/store/slices/cartSlice'
+import { clearAuthState } from '@/lib/auth/logout'
 
 const menuItems = [
   {
@@ -71,6 +75,7 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const dispatch = useAppDispatch()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { profile, permissions } = useAuth()
 
@@ -82,26 +87,31 @@ export default function Sidebar() {
     try {
       console.log('Starting logout...')
       
-      // Sign out from Supabase (this should clear auth cookies automatically)
+      // Clear Redux state
+      dispatch(clearAuth())
+      dispatch(clearCart())
+      
+      // Clear persisted state and JWT token
+      await clearAuthState()
+      
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut({ scope: 'global' })
       
       if (error) {
         console.error('Supabase signout error:', error)
       }
       
-      // Clear all browser storage
+      // Clear any remaining storage
       if (typeof window !== 'undefined') {
-        // Clear ALL localStorage (fresh start)
-        localStorage.clear()
         sessionStorage.clear()
         
-        // Also try to clear cookies manually (belt and suspenders approach)
+        // Clear cookies manually
         document.cookie.split(";").forEach(function(c) { 
           document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
         })
       }
       
-      console.log('Logout complete, storage cleared')
+      console.log('Logout complete, all state cleared')
       toast.success('Logged out successfully')
       
       // Immediate hard redirect with cache bust

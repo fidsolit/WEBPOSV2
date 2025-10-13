@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getPermissions, Permission, UserRole } from '@/lib/auth/permissions'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { setAuth, clearAuth } from '@/store/slices/authSlice'
-import { selectUser, selectProfile, selectToken } from '@/store/selectors'
+import { setAuth, clearAuth, setUser, setProfile } from '@/store/slices/authSlice'
+import { selectUser, selectProfile, selectToken, selectIsAuthenticated } from '@/store/selectors'
 import { getTokenFromStorage, setTokenInStorage, removeTokenFromStorage } from '@/lib/jwt/client'
 import { generateToken } from '@/lib/jwt/token'
 
@@ -19,44 +19,70 @@ export function useAuth() {
   const user = useAppSelector(selectUser)
   const profile = useAppSelector(selectProfile)
   const token = useAppSelector(selectToken)
+  const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
 
   useEffect(() => {
-    // Check for existing JWT token
-    const storedToken = getTokenFromStorage()
-    
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        loadProfile(session.user)
-      } else if (storedToken) {
-        // Token exists but no session, clear it
+    let isMounted = true
+
+    const syncSession = async () => {
+      try {
+        // Get current Supabase session
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (session?.user) {
+          // Session exists, verify and sync with Redux
+          await loadProfile(session.user)
+        } else {
+          // No session, check if we have persisted Redux state
+          if (isAuthenticated && user) {
+            // Redux thinks we're logged in but Supabase doesn't
+            // Clear everything for consistency
+            console.warn('Session mismatch: Clearing stale auth state')
+            removeTokenFromStorage()
+            dispatch(clearAuth())
+          }
+          if (isMounted) {
+            setLoading(false)
+          }
+        }
+      } catch (error) {
+        console.error('Session sync error:', error)
         removeTokenFromStorage()
         dispatch(clearAuth())
-        setLoading(false)
-      } else {
-        dispatch(clearAuth())
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
-    })
+    }
+
+    // Initial sync
+    syncSession()
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event)
+      
       if (session?.user) {
-        loadProfile(session.user)
+        await loadProfile(session.user)
       } else {
         removeTokenFromStorage()
         dispatch(clearAuth())
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     })
 
-    return () => subscription.unsubscribe()
-  }, [])
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, []) // Empty dependency array - only run once on mount
 
   const loadProfile = async (user: any) => {
     try {
@@ -79,6 +105,7 @@ export function useAuth() {
         setTokenInStorage(jwtToken)
       }
 
+      // Update Redux state
       dispatch(setAuth({
         user,
         profile,
@@ -88,6 +115,7 @@ export function useAuth() {
       setLoading(false)
     } catch (error) {
       console.error('Error loading profile:', error)
+      removeTokenFromStorage()
       dispatch(clearAuth())
       setLoading(false)
     }

@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAppSelector } from '@/store/hooks'
-import { selectCartItems, selectCartSubtotal, selectCartTax, selectCartTotal } from '@/store/selectors'
+import { selectCartItems, selectCartSubtotal, selectCartTax, selectCartTotal, selectUser, selectProfile } from '@/store/selectors'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { PaymentMethod } from '@/types'
@@ -26,6 +26,8 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
   const subtotal = useAppSelector(selectCartSubtotal)
   const tax = useAppSelector(selectCartTax)
   const total = useAppSelector(selectCartTotal)
+  const user = useAppSelector(selectUser)
+  const profile = useAppSelector(selectProfile)
   const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,13 +35,10 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
     setLoading(true)
 
     try {
-      // Get current session and user
-      const { data: { session } } = await supabase.auth.getSession()
-      const user = session?.user
-      
-      if (!user || !session) {
+      // Check Redux state for authenticated user
+      if (!user || !profile) {
         toast.error('You must be logged in. Please login again.')
-        console.error('No user session found')
+        console.error('No user found in Redux state')
         setLoading(false)
         // Redirect to login
         setTimeout(() => {
@@ -50,22 +49,8 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
 
       console.log('User found:', user.email)
 
-      // Ensure profile exists (create if missing)
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id, is_active')
-        .eq('id', user.id)
-        .single()
-
-      if (!existingProfile) {
-        console.error('Profile not found for user:', user.id)
-        toast.error('User profile not found. Please logout and login again.')
-        setLoading(false)
-        return
-      }
-
       // Check if profile is active
-      if (!existingProfile.is_active) {
+      if (!profile.is_active) {
         toast.error('Your account is pending admin approval. Please contact an administrator.')
         setLoading(false)
         return
