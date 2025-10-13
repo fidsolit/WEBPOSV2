@@ -1,8 +1,12 @@
 "use client";
 
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useCartStore } from "@/store/useCartStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { addItem, updateQuantity, removeItem, clearCart } from "@/store/slices/cartSlice";
+import { selectCartItems, selectCartSubtotal, selectCartTax, selectCartTotal } from "@/store/selectors";
 import { Product, ProductWithCategory } from "@/types";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -41,16 +45,11 @@ export default function POSPage() {
   const [totalCount, setTotalCount] = useState(0);
   const itemsPerPage = 30; // More items per page for POS
 
-  const {
-    items,
-    addItem,
-    updateQuantity,
-    removeItem,
-    getTotal,
-    getSubtotal,
-    getTax,
-    clearCart,
-  } = useCartStore();
+  const dispatch = useAppDispatch();
+  const items = useAppSelector(selectCartItems);
+  const subtotal = useAppSelector(selectCartSubtotal);
+  const tax = useAppSelector(selectCartTax);
+  const total = useAppSelector(selectCartTotal);
   const supabase = createClient();
 
   useEffect(() => {
@@ -244,7 +243,7 @@ export default function POSPage() {
       }
 
       // Add to cart
-      addItem(data);
+      dispatch(addItem(data));
       toast.success(`Added: ${data.name}`, {
         icon: "✅",
         duration: 2000,
@@ -262,7 +261,7 @@ export default function POSPage() {
   };
 
   const handleCheckoutComplete = () => {
-    clearCart();
+    dispatch(clearCart());
     setIsCheckoutOpen(false);
     toast.success("Sale completed successfully!");
   };
@@ -373,7 +372,7 @@ export default function POSPage() {
                     <Card
                       key={product.id}
                       className="cursor-pointer hover:shadow-xl transition-shadow"
-                      onClick={() => addItem(product)}
+                      onClick={() => dispatch(addItem(product))}
                     >
                       <CardContent className="p-4">
                         <div className="aspect-square bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg mb-3 flex items-center justify-center">
@@ -438,7 +437,7 @@ export default function POSPage() {
                       <tr
                         key={product.id}
                         className="hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => addItem(product)}
+                        onClick={() => dispatch(addItem(product))}
                       >
                         <td className="px-4 py-3">
                           <div>
@@ -475,7 +474,7 @@ export default function POSPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              addItem(product);
+                              dispatch(addItem(product));
                             }}
                             className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg transition-colors"
                           >
@@ -583,7 +582,7 @@ export default function POSPage() {
                         </p>
                       </div>
                       <button
-                        onClick={() => removeItem(item.product.id)}
+                        onClick={() => dispatch(removeItem(item.product.id))}
                         className="text-red-600 hover:text-red-700"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -594,7 +593,7 @@ export default function POSPage() {
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() =>
-                            updateQuantity(item.product.id, item.quantity - 1)
+                            dispatch(updateQuantity({ productId: item.product.id, quantity: item.quantity - 1 }))
                           }
                           className="w-8 h-8 rounded bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100"
                         >
@@ -605,7 +604,7 @@ export default function POSPage() {
                         </span>
                         <button
                           onClick={() =>
-                            updateQuantity(item.product.id, item.quantity + 1)
+                            dispatch(updateQuantity({ productId: item.product.id, quantity: item.quantity + 1 }))
                           }
                           className="w-8 h-8 rounded bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100"
                           disabled={item.quantity >= item.product.stock}
@@ -627,16 +626,16 @@ export default function POSPage() {
               <div className="flex justify-between text-gray-700">
                 <span>Subtotal:</span>
                 <span className="font-semibold">
-                  ₱{getSubtotal().toFixed(2)}
+                  ₱{subtotal.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between text-gray-700">
                 <span>Tax (10%):</span>
-                <span className="font-semibold">₱{getTax().toFixed(2)}</span>
+                <span className="font-semibold">₱{tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t border-gray-200">
                 <span>Total:</span>
-                <span>₱{getTotal().toFixed(2)}</span>
+                <span>₱{total.toFixed(2)}</span>
               </div>
 
               <Button

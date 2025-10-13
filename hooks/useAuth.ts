@@ -1,38 +1,44 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { User } from '@supabase/supabase-js'
-import { Profile } from '@/types'
 import { getPermissions, Permission, UserRole } from '@/lib/auth/permissions'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { setAuth, clearAuth } from '@/store/slices/authSlice'
+import { selectUser, selectProfile, selectToken } from '@/store/selectors'
+import { getTokenFromStorage, setTokenInStorage, removeTokenFromStorage } from '@/lib/jwt/client'
+import { generateToken } from '@/lib/jwt/token'
 
 interface AuthState {
-  user: User | null
-  profile: Profile | null
+  user: ReturnType<typeof selectUser>
+  profile: ReturnType<typeof selectProfile>
   loading: boolean
   permissions: Permission
 }
 
 export function useAuth() {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    profile: null,
-    loading: true,
-    permissions: getPermissions(null),
-  })
+  const dispatch = useAppDispatch()
+  const user = useAppSelector(selectUser)
+  const profile = useAppSelector(selectProfile)
+  const token = useAppSelector(selectToken)
+  const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
 
   useEffect(() => {
+    // Check for existing JWT token
+    const storedToken = getTokenFromStorage()
+    
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         loadProfile(session.user)
+      } else if (storedToken) {
+        // Token exists but no session, clear it
+        removeTokenFromStorage()
+        dispatch(clearAuth())
+        setLoading(false)
       } else {
-        setState({
-          user: null,
-          profile: null,
-          loading: false,
-          permissions: getPermissions(null),
-        })
+        dispatch(clearAuth())
+        setLoading(false)
       }
     })
 
@@ -43,19 +49,16 @@ export function useAuth() {
       if (session?.user) {
         loadProfile(session.user)
       } else {
-        setState({
-          user: null,
-          profile: null,
-          loading: false,
-          permissions: getPermissions(null),
-        })
+        removeTokenFromStorage()
+        dispatch(clearAuth())
+        setLoading(false)
       }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  const loadProfile = async (user: User) => {
+  const loadProfile = async (user: any) => {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -65,23 +68,36 @@ export function useAuth() {
 
       if (error) throw error
 
-      setState({
+      // Generate or retrieve JWT token
+      let jwtToken = getTokenFromStorage()
+      if (!jwtToken) {
+        jwtToken = generateToken({
+          userId: user.id,
+          email: user.email,
+          role: profile.role,
+        })
+        setTokenInStorage(jwtToken)
+      }
+
+      dispatch(setAuth({
         user,
         profile,
-        loading: false,
-        permissions: getPermissions(profile?.role as UserRole),
-      })
+        token: jwtToken,
+      }))
+      
+      setLoading(false)
     } catch (error) {
       console.error('Error loading profile:', error)
-      setState({
-        user,
-        profile: null,
-        loading: false,
-        permissions: getPermissions(null),
-      })
+      dispatch(clearAuth())
+      setLoading(false)
     }
   }
 
-  return state
+  return {
+    user,
+    profile,
+    loading,
+    permissions: getPermissions(profile?.role as UserRole),
+  } as AuthState
 }
 

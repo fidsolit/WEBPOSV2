@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { useCartStore } from '@/store/useCartStore'
+import { useAppSelector } from '@/store/hooks'
+import { selectCartItems, selectCartSubtotal, selectCartTax, selectCartTotal } from '@/store/selectors'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { PaymentMethod } from '@/types'
@@ -21,7 +22,10 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
   const [customerName, setCustomerName] = useState('')
   const [loading, setLoading] = useState(false)
   
-  const { items, getSubtotal, getTax, getTotal } = useCartStore()
+  const items = useAppSelector(selectCartItems)
+  const subtotal = useAppSelector(selectCartSubtotal)
+  const tax = useAppSelector(selectCartTax)
+  const total = useAppSelector(selectCartTotal)
   const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,12 +33,22 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
     setLoading(true)
 
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        toast.error('You must be logged in')
+      // Get current session and user
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
+      
+      if (!user || !session) {
+        toast.error('You must be logged in. Please login again.')
+        console.error('No user session found')
+        setLoading(false)
+        // Redirect to login
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 1500)
         return
       }
+
+      console.log('User found:', user.email)
 
       // Ensure profile exists (create if missing)
       const { data: existingProfile } = await supabase
@@ -44,31 +58,20 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
         .single()
 
       if (!existingProfile) {
-        // Create profile if it doesn't exist (inactive by default)
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.id,
-            email: user.email!,
-            full_name: user.user_metadata?.full_name || null,
-            is_active: false,
-          })
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError)
-          toast.error('Failed to create user profile. Please contact support.')
-          return
-        }
-        
-        toast.error('Your account requires admin approval before you can make sales.')
+        console.error('Profile not found for user:', user.id)
+        toast.error('User profile not found. Please logout and login again.')
+        setLoading(false)
         return
       }
 
       // Check if profile is active
       if (!existingProfile.is_active) {
         toast.error('Your account is pending admin approval. Please contact an administrator.')
+        setLoading(false)
         return
       }
+
+      console.log('Profile verified, proceeding with sale...')
 
       // Generate sale number
       const { data: saleNumberData } = await supabase.rpc('generate_sale_number')
@@ -81,10 +84,10 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
           sale_number: saleNumber,
           user_id: user.id,
           customer_name: customerName || null,
-          subtotal: getSubtotal(),
-          tax: getTax(),
+          subtotal: subtotal,
+          tax: tax,
           discount: 0,
-          total: getTotal(),
+          total: total,
           payment_method: paymentMethod,
           status: 'completed',
         })
@@ -158,15 +161,15 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
           <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
             <div className="flex justify-between text-sm">
               <span>Subtotal:</span>
-              <span>₱{getSubtotal().toFixed(2)}</span>
+              <span>₱{subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>Tax:</span>
-              <span>₱{getTax().toFixed(2)}</span>
+              <span>₱{tax.toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-bold text-lg pt-2 border-t border-gray-200">
               <span>Total:</span>
-              <span className="text-primary-600">₱{getTotal().toFixed(2)}</span>
+              <span className="text-primary-600">₱{total.toFixed(2)}</span>
             </div>
           </div>
         </div>

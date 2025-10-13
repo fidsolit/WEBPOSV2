@@ -3,6 +3,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
+import { generateToken } from '@/lib/jwt/token'
 
 export async function loginAction(email: string, password: string) {
   const supabase = createServerClient()
@@ -23,7 +24,7 @@ export async function loginAction(email: string, password: string) {
   // Check if user is approved
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('is_active, role')
+    .select('*')
     .eq('id', data.user.id)
     .single()
 
@@ -36,18 +37,39 @@ export async function loginAction(email: string, password: string) {
     return { error: 'Your account is pending admin approval. Please wait for activation.' }
   }
 
+  // Generate JWT token
+  const jwtToken = generateToken({
+    userId: data.user.id,
+    email: data.user.email!,
+    role: profile.role,
+  })
+
   // Set session cookies
   if (data.session) {
     const cookieStore = cookies()
+    // Set Supabase token
     cookieStore.set('sb-auth-token', data.session.access_token, {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 days
     })
+    
+    // Set custom JWT token
+    cookieStore.set('jwt-token', jwtToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    })
   }
 
-  return { success: true }
+  return { 
+    success: true, 
+    user: data.user, 
+    profile, 
+    token: jwtToken 
+  }
 }
 
 export async function signupAction(email: string, password: string, fullName: string) {
@@ -87,17 +109,28 @@ export async function logoutAction() {
     console.error('Server logout error:', error)
   }
   
-  // Clear all Supabase cookies
+  // Clear all cookies
   const cookieStore = cookies()
   const allCookies = cookieStore.getAll()
   
-  // Delete all Supabase-related cookies
+  // Delete all auth-related cookies
   allCookies.forEach(cookie => {
-    if (cookie.name.includes('sb-') || cookie.name.includes('supabase')) {
+    if (cookie.name.includes('sb-') || cookie.name.includes('supabase') || cookie.name.includes('jwt-')) {
       cookieStore.delete(cookie.name)
     }
   })
   
   redirect('/login')
+}
+
+export async function verifyTokenAction(token: string) {
+  const cookieStore = cookies()
+  const storedToken = cookieStore.get('jwt-token')
+  
+  if (!storedToken || storedToken.value !== token) {
+    return { valid: false, error: 'Invalid token' }
+  }
+  
+  return { valid: true }
 }
 

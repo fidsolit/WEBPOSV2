@@ -6,6 +6,9 @@ import { loginAction } from '@/app/actions/auth'
 import toast from 'react-hot-toast'
 import { ShoppingCart, Lock, Mail } from 'lucide-react'
 import Link from 'next/link'
+import { useAppDispatch } from '@/store/hooks'
+import { setAuth } from '@/store/slices/authSlice'
+import { setTokenInStorage } from '@/lib/jwt/client'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -13,6 +16,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const dispatch = useAppDispatch()
 
   // Prevent back navigation after logout
   useEffect(() => {
@@ -35,7 +39,17 @@ export default function LoginPage() {
         return
       }
 
-      if (result.success) {
+      if (result.success && result.user && result.profile && result.token) {
+        // Store JWT token in localStorage
+        setTokenInStorage(result.token)
+        
+        // Dispatch auth data to Redux store
+        dispatch(setAuth({
+          user: result.user,
+          profile: result.profile,
+          token: result.token,
+        }))
+        
         toast.success('Login successful!')
         
         // Use Next.js navigation with transition
