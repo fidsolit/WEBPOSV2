@@ -68,7 +68,8 @@ export async function loginAction(email: string, password: string) {
     success: true, 
     user: data.user, 
     profile, 
-    token: jwtToken 
+    token: jwtToken,
+    session: data.session  // Return session for client-side Supabase
   }
 }
 

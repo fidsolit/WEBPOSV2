@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useAppDispatch } from '@/store/hooks'
 import { setAuth } from '@/store/slices/authSlice'
 import { setTokenInStorage } from '@/lib/jwt/client'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const dispatch = useAppDispatch()
+  const supabase = createClient()
 
   // Prevent back navigation after logout
   useEffect(() => {
@@ -57,6 +59,19 @@ export default function LoginPage() {
           role: result.profile.role,
           profileActive: result.profile.is_active
         })
+        
+        // Set session in client-side Supabase to ensure it's available everywhere
+        if (result.session) {
+          try {
+            await supabase.auth.setSession({
+              access_token: result.session.access_token,
+              refresh_token: result.session.refresh_token,
+            })
+            console.log('✅ Client-side Supabase session set')
+          } catch (error) {
+            console.error('⚠️ Error setting client session:', error)
+          }
+        }
         
         // Store JWT token in localStorage
         setTokenInStorage(result.token)
