@@ -6,7 +6,7 @@ import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { addItem, updateQuantity, removeItem, clearCart } from "@/store/slices/cartSlice";
-import { selectCartItems, selectCartSubtotal, selectCartTax, selectCartTotal } from "@/store/selectors";
+import { selectCartItems, selectCartSubtotal, selectCartTax, selectCartTotal, selectUser, selectProfile } from "@/store/selectors";
 import { Product, ProductWithCategory } from "@/types";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -50,7 +50,20 @@ export default function POSPage() {
   const subtotal = useAppSelector(selectCartSubtotal);
   const tax = useAppSelector(selectCartTax);
   const total = useAppSelector(selectCartTotal);
+  const authUser = useAppSelector(selectUser);
+  const authProfile = useAppSelector(selectProfile);
   const supabase = createClient();
+
+  // Debug: Log auth state when POS page loads
+  useEffect(() => {
+    console.log('POS Page - Redux Auth State:', {
+      hasUser: !!authUser,
+      hasProfile: !!authProfile,
+      userId: authUser?.id,
+      userEmail: authUser?.email,
+      profileRole: authProfile?.role
+    });
+  }, [authUser, authProfile]);
 
   useEffect(() => {
     loadCategories();

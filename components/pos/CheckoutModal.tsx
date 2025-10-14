@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAppSelector } from '@/store/hooks'
-import { selectCartItems, selectCartSubtotal, selectCartTax, selectCartTotal, selectUser, selectProfile } from '@/store/selectors'
+import { selectCartItems, selectCartSubtotal, selectCartTax, selectCartTotal } from '@/store/selectors'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
 import toast from 'react-hot-toast'
 import { PaymentMethod } from '@/types'
 import { CreditCard, Wallet, Banknote } from 'lucide-react'
@@ -26,19 +27,66 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
   const subtotal = useAppSelector(selectCartSubtotal)
   const tax = useAppSelector(selectCartTax)
   const total = useAppSelector(selectCartTotal)
-  const user = useAppSelector(selectUser)
-  const profile = useAppSelector(selectProfile)
+  
+  // Use the useAuth hook to ensure session is synced
+  const { user, profile, loading: authLoading } = useAuth()
   const supabase = createClient()
+
+  // Debug: Log auth state changes
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (isOpen) {
+        // Check Supabase session directly
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        console.log('🔍 CheckoutModal Auth State:', {
+          isOpen,
+          authLoading,
+          hasUser: !!user,
+          hasProfile: !!profile,
+          userEmail: user?.email,
+          profileRole: profile?.role,
+          supabaseSession: !!session,
+          supabaseUser: session?.user?.email,
+          timestamp: new Date().toISOString()
+        })
+      }
+    }
+    checkAuth()
+  }, [isOpen, authLoading, user, profile, supabase])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Prevent submission while auth is loading
+    if (authLoading) {
+      toast.error('Please wait, loading authentication...')
+      return
+    }
+    
     setLoading(true)
 
     try {
+      // Debug: Log Redux state
+      console.log('CheckoutModal - Redux Auth State:', {
+        hasUser: !!user,
+        hasProfile: !!profile,
+        userId: user?.id,
+        userEmail: user?.email,
+        profileRole: profile?.role,
+        profileActive: profile?.is_active,
+        authLoading
+      })
+
       // Check Redux state for authenticated user
       if (!user || !profile) {
+        console.error('❌ Authentication check failed:', {
+          user: user,
+          profile: profile,
+          reduxStateEmpty: !user && !profile,
+          authLoading
+        })
         toast.error('You must be logged in. Please login again.')
-        console.error('No user found in Redux state')
         setLoading(false)
         // Redirect to login
         setTimeout(() => {
@@ -47,7 +95,7 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
         return
       }
 
-      console.log('User found:', user.email)
+      console.log('✅ User authenticated:', user.email)
 
       // Check if profile is active
       if (!profile.is_active) {
@@ -129,9 +177,17 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Checkout" size="md">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Order Summary */}
-        <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+      {authLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading authentication...</p>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Order Summary */}
+          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
           <h3 className="font-semibold text-gray-900 mb-3">Order Summary</h3>
           {items.map(item => (
             <div key={item.product.id} className="flex justify-between text-sm">
@@ -206,7 +262,7 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
             size="lg"
             className="flex-1"
             onClick={onClose}
-            disabled={loading}
+            disabled={loading || authLoading}
           >
             Cancel
           </Button>
@@ -215,12 +271,13 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
             variant="primary"
             size="lg"
             className="flex-1"
-            disabled={loading}
+            disabled={loading || authLoading}
           >
             {loading ? 'Processing...' : 'Complete Sale'}
           </Button>
         </div>
       </form>
+      )}
     </Modal>
   )
 }

@@ -31,17 +31,36 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+      console.log('🔐 Starting login...')
       const result = await loginAction(email, password)
+      
+      console.log('📦 Login action result:', {
+        hasSuccess: !!result.success,
+        hasError: !!result.error,
+        hasUser: !!result.user,
+        hasProfile: !!result.profile,
+        hasToken: !!result.token,
+        error: result.error
+      })
 
       if (result.error) {
+        console.error('❌ Login error:', result.error)
         toast.error(result.error)
         setLoading(false)
         return
       }
 
       if (result.success && result.user && result.profile && result.token) {
+        console.log('✅ Login successful, setting Redux state:', {
+          userId: result.user.id,
+          email: result.user.email,
+          role: result.profile.role,
+          profileActive: result.profile.is_active
+        })
+        
         // Store JWT token in localStorage
         setTokenInStorage(result.token)
+        console.log('✅ JWT token stored in localStorage')
         
         // Dispatch auth data to Redux store
         dispatch(setAuth({
@@ -50,21 +69,32 @@ export default function LoginPage() {
           token: result.token,
         }))
         
+        console.log('✅ Redux state dispatched, waiting for persistence...')
+        
+        // Wait a bit for redux-persist to save state
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // Verify state was saved
+        const storedState = localStorage.getItem('persist:root')
+        if (storedState) {
+          console.log('✅ Redux state persisted to localStorage')
+        } else {
+          console.warn('⚠️ Redux state not found in localStorage!')
+        }
+        
         toast.success('Login successful!')
         
-        // Use Next.js navigation with transition
-        startTransition(() => {
-          router.push('/dashboard')
-          router.refresh()
-        })
+        console.log('✅ Redirecting to dashboard...')
         
-        // Fallback: Hard redirect after delay if router doesn't work
-        setTimeout(() => {
-          window.location.href = '/dashboard'
-        }, 1500)
+        // Use hard redirect to ensure state is loaded
+        window.location.href = '/dashboard'
+      } else {
+        console.error('❌ Login response missing data:', result)
+        toast.error('Login failed: Incomplete data received')
+        setLoading(false)
       }
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('❌ Login exception:', error)
       toast.error('An error occurred during login')
       setLoading(false)
     }
