@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -32,87 +32,26 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
   const profile = useAppSelector(selectProfile)
   const supabase = createClient()
 
-  // Debug: Log auth state when modal opens
+  // Minimal auth check - only log if there's an issue
   useEffect(() => {
-    const checkAuth = async () => {
-      if (isOpen) {
-        // Check Supabase session directly
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        // Check localStorage for persisted Redux state
-        let persistedAuth = null
-        try {
-          const persistedState = localStorage.getItem('persist:root')
-          if (persistedState) {
-            const parsed = JSON.parse(persistedState)
-            if (parsed.auth) {
-              persistedAuth = JSON.parse(parsed.auth)
-            }
-          }
-        } catch (e) {
-          console.error('Error reading persisted state:', e)
-        }
-        
-        console.log('🔍 CheckoutModal FULL Debug:', {
-          '1_Modal': { isOpen },
-          '2_Redux_State': {
-            hasUser: !!user,
-            hasProfile: !!profile,
-            userEmail: user?.email,
-            userId: user?.id,
-            profileRole: profile?.role,
-            profileActive: profile?.is_active,
-            userObject: user,
-            profileObject: profile
-          },
-          '3_Supabase_Session': {
-            hasSession: !!session,
-            userId: session?.user?.id,
-            userEmail: session?.user?.email,
-          },
-          '4_LocalStorage_Persisted': {
-            hasPersistedState: !!persistedAuth,
-            persistedUserId: persistedAuth?.user?.id,
-            persistedUserEmail: persistedAuth?.user?.email,
-            persistedProfileRole: persistedAuth?.profile?.role,
-          },
-          '5_JWT_Token': {
-            hasToken: !!localStorage.getItem('auth_token')
-          },
-          timestamp: new Date().toISOString()
-        })
-      }
+    if (isOpen && (!user || !profile)) {
+      console.warn('⚠️ CheckoutModal opened without auth state')
     }
-    checkAuth()
-  }, [isOpen, user, profile, supabase])
+  }, [isOpen, user, profile])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      // Debug: Log Redux state
-      console.log('CheckoutModal - Redux Auth State:', {
-        hasUser: !!user,
-        hasProfile: !!profile,
-        userId: user?.id,
-        userEmail: user?.email,
-        profileRole: profile?.role,
-        profileActive: profile?.is_active
-      })
-
       // If Redux state is empty, try to get from Supabase session as fallback
       let currentUser = user
       let currentProfile = profile
 
       if (!currentUser || !currentProfile) {
-        console.warn('⚠️ Redux state empty, attempting to get session from Supabase...')
-        
         const { data: { session } } = await supabase.auth.getSession()
         
         if (session?.user) {
-          console.log('✅ Found Supabase session, fetching profile...')
-          
           // Get profile from database
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
@@ -121,40 +60,28 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
             .single()
           
           if (profileError || !profileData) {
-            console.error('❌ Failed to fetch profile:', profileError)
             toast.error('Failed to load user profile. Please login again.')
             setLoading(false)
-            setTimeout(() => {
-              window.location.href = '/login'
-            }, 1500)
+            setTimeout(() => window.location.href = '/login', 1500)
             return
           }
           
           currentUser = session.user
           currentProfile = profileData
-          
-          console.log('✅ Fallback successful - user and profile loaded from Supabase')
         } else {
-          console.error('❌ No Supabase session found')
           toast.error('You must be logged in. Please login again.')
           setLoading(false)
-          setTimeout(() => {
-            window.location.href = '/login'
-          }, 1500)
+          setTimeout(() => window.location.href = '/login', 1500)
           return
         }
       }
 
-      console.log('✅ User authenticated:', currentUser.email)
-
       // Check if profile is active
       if (!currentProfile || !currentProfile.is_active) {
-        toast.error('Your account is pending admin approval. Please contact an administrator.')
+        toast.error('Your account is pending admin approval.')
         setLoading(false)
         return
       }
-
-      console.log('Profile verified, proceeding with sale...')
 
       // Generate sale number
       const { data: saleNumberData } = await supabase.rpc('generate_sale_number')
@@ -217,13 +144,13 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, profile, supabase, items, subtotal, tax, total, customerName, paymentMethod, onComplete])
 
-  const paymentMethods = [
+  const paymentMethods = useMemo(() => [
     { value: 'cash' as PaymentMethod, label: 'Cash', icon: Banknote },
     { value: 'card' as PaymentMethod, label: 'Card', icon: CreditCard },
     { value: 'digital_wallet' as PaymentMethod, label: 'Digital Wallet', icon: Wallet },
-  ]
+  ], [])
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Checkout" size="md">

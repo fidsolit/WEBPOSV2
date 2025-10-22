@@ -2,7 +2,8 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 import { createClient } from "@/lib/supabase/client";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { addItem, updateQuantity, removeItem, clearCart } from "@/store/slices/cartSlice";
@@ -13,9 +14,6 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
   Search,
-  Plus,
-  Minus,
-  Trash2,
   CreditCard,
   Scan,
   Grid3x3,
@@ -23,14 +21,15 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import CheckoutModal from "@/components/pos/CheckoutModal";
+import ProductCard from "@/components/pos/ProductCard";
+import ProductTableRow from "@/components/pos/ProductTableRow";
+import CartItem from "@/components/pos/CartItem";
 
 export default function POSPage() {
   const [products, setProducts] = useState<ProductWithCategory[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<
-    ProductWithCategory[]
-  >([]);
   const [categories, setCategories] = useState<string[]>(["All"]);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [loading, setLoading] = useState(true);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -54,16 +53,7 @@ export default function POSPage() {
   const authProfile = useAppSelector(selectProfile);
   const supabase = createClient();
 
-  // Debug: Log auth state when POS page loads
-  useEffect(() => {
-    console.log('POS Page - Redux Auth State:', {
-      hasUser: !!authUser,
-      hasProfile: !!authProfile,
-      userId: authUser?.id,
-      userEmail: authUser?.email,
-      profileRole: authProfile?.role
-    });
-  }, [authUser, authProfile]);
+  // Removed debug logging for performance
 
   useEffect(() => {
     loadCategories();
@@ -132,9 +122,6 @@ export default function POSPage() {
     };
   }, [barcodeBuffer]);
 
-  useEffect(() => {
-    filterProducts();
-  }, [searchQuery, selectedCategory, products]);
 
   const loadCategories = async () => {
     try {
@@ -181,7 +168,6 @@ export default function POSPage() {
 
       if (error) throw error;
       setProducts((data as any) || []);
-      setFilteredProducts((data as any) || []);
       setTotalCount(count || 0);
     } catch (error) {
       console.error("Error loading products:", error);
@@ -205,32 +191,45 @@ export default function POSPage() {
     setCurrentPage(1); // Reset to first page when changing category
   };
 
-  const filterProducts = () => {
-    // Category filtering is done server-side in loadProducts()
-    // This only handles client-side search on the current page
-    let filtered = products;
+  // Memoized filtered products to prevent unnecessary recalculations
+  const filteredProducts = useMemo(() => {
+    if (!debouncedSearchQuery) return products;
+    
+    const query = debouncedSearchQuery.toLowerCase();
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(query) ||
+        p.sku.toLowerCase().includes(query) ||
+        (p.barcode && p.barcode.toLowerCase().includes(query))
+    );
+  }, [products, debouncedSearchQuery]);
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(query) ||
-          p.sku.toLowerCase().includes(query) ||
-          (p.barcode && p.barcode.toLowerCase().includes(query))
-      );
-    }
-
-    setFilteredProducts(filtered);
-  };
-
-  // Toggle view mode
-  const toggleViewMode = (mode: "grid" | "table") => {
+  // Memoized event handlers to prevent unnecessary re-renders
+  const toggleViewMode = useCallback((mode: "grid" | "table") => {
     setViewMode(mode);
     localStorage.setItem("posViewMode", mode);
-  };
+  }, []);
 
-  // Search product by barcode
-  const searchProductByBarcode = async (barcode: string) => {
+  const handleAddToCart = useCallback((product: ProductWithCategory) => {
+    dispatch(addItem(product));
+  }, [dispatch]);
+
+  const handleRemoveFromCart = useCallback((productId: string) => {
+    dispatch(removeItem(productId));
+  }, [dispatch]);
+
+  const handleUpdateQuantity = useCallback((productId: string, quantity: number) => {
+    dispatch(updateQuantity({ productId, quantity }));
+  }, [dispatch]);
+
+  const handleCheckoutComplete = useCallback(() => {
+    dispatch(clearCart());
+    setIsCheckoutOpen(false);
+    toast.success("Sale completed successfully!");
+  }, [dispatch]);
+
+  // Search product by barcode with memoization
+  const searchProductByBarcode = useCallback(async (barcode: string) => {
     try {
       const { data, error } = await supabase
         .from("products")
@@ -271,13 +270,8 @@ export default function POSPage() {
       console.error("Barcode scan error:", error);
       toast.error("Failed to scan barcode");
     }
-  };
+  }, [supabase, dispatch]);
 
-  const handleCheckoutComplete = () => {
-    dispatch(clearCart());
-    setIsCheckoutOpen(false);
-    toast.success("Sale completed successfully!");
-  };
 
   if (loading) {
     return (
@@ -382,37 +376,11 @@ export default function POSPage() {
               <>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {filteredProducts.map((product) => (
-                    <Card
+                    <ProductCard
                       key={product.id}
-                      className="cursor-pointer hover:shadow-xl transition-shadow"
-                      onClick={() => dispatch(addItem(product))}
-                    >
-                      <CardContent className="p-4">
-                        <div className="aspect-square bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg mb-3 flex items-center justify-center">
-                          <span className="text-5xl">🛍️</span>
-                        </div>
-                        <h3 className="font-semibold text-gray-900 truncate">
-                          {product.name}
-                        </h3>
-                        <p className="text-xs text-gray-500 mb-2">
-                          {product.sku}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-lg font-bold text-primary-600">
-                            ₱{product.price.toFixed(2)}
-                          </span>
-                          <span
-                            className={`text-xs font-medium ${
-                              product.stock < 10
-                                ? "text-red-600"
-                                : "text-gray-500"
-                            }`}
-                          >
-                            {product.stock} left
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      product={product}
+                      onAddToCart={handleAddToCart}
+                    />
                   ))}
                 </div>
 
@@ -447,54 +415,11 @@ export default function POSPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {filteredProducts.map((product) => (
-                      <tr
+                      <ProductTableRow
                         key={product.id}
-                        className="hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => dispatch(addItem(product))}
-                      >
-                        <td className="px-4 py-3">
-                          <div>
-                            <p className="font-semibold text-gray-900">
-                              {product.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {product.sku}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
-                            {product.categories?.name || "N/A"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="font-bold text-primary-600">
-                            ₱{product.price.toFixed(2)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span
-                            className={`font-semibold ${
-                              product.stock < 10
-                                ? "text-red-600"
-                                : "text-gray-700"
-                            }`}
-                          >
-                            {product.stock}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              dispatch(addItem(product));
-                            }}
-                            className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg transition-colors"
-                          >
-                            Add
-                          </button>
-                        </td>
-                      </tr>
+                        product={product}
+                        onAddToCart={handleAddToCart}
+                      />
                     ))}
                   </tbody>
                 </table>
@@ -581,55 +506,12 @@ export default function POSPage() {
                 </div>
               ) : (
                 items.map((item) => (
-                  <div
+                  <CartItem
                     key={item.product.id}
-                    className="bg-gray-50 rounded-lg p-3"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">
-                          {item.product.name}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          ₱{item.product.price.toFixed(2)}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => dispatch(removeItem(item.product.id))}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() =>
-                            dispatch(updateQuantity({ productId: item.product.id, quantity: item.quantity - 1 }))
-                          }
-                          className="w-8 h-8 rounded bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <span className="w-8 text-center font-semibold">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() =>
-                            dispatch(updateQuantity({ productId: item.product.id, quantity: item.quantity + 1 }))
-                          }
-                          className="w-8 h-8 rounded bg-white border border-gray-300 flex items-center justify-center hover:bg-gray-100"
-                          disabled={item.quantity >= item.product.stock}
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <span className="font-bold text-gray-900">
-                        ₱{(item.product.price * item.quantity).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
+                    item={item}
+                    onRemoveItem={handleRemoveFromCart}
+                    onUpdateQuantity={handleUpdateQuantity}
+                  />
                 ))
               )}
             </div>

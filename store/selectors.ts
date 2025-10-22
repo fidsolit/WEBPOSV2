@@ -1,3 +1,4 @@
+import { createSelector } from '@reduxjs/toolkit'
 import { RootState } from './index'
 
 // Auth selectors
@@ -9,23 +10,24 @@ export const selectIsAuthenticated = (state: RootState) => state.auth.isAuthenti
 // Cart selectors
 export const selectCartItems = (state: RootState) => state.cart.items
 
-export const selectCartSubtotal = (state: RootState) => {
-  return state.cart.items.reduce(
-    (total, item) => total + item.product.price * item.quantity,
-    0
-  )
-}
+// Memoized cart calculations to prevent unnecessary recalculations
+export const selectCartSubtotal = createSelector(
+  [selectCartItems],
+  (items) => items.reduce((total, item) => total + item.product.price * item.quantity, 0)
+)
 
-export const selectCartTax = (state: RootState) => {
-  const subtotal = selectCartSubtotal(state)
-  return subtotal * 0.1 // 10% tax
-}
+export const selectCartTax = createSelector(
+  [selectCartSubtotal],
+  (subtotal) => subtotal * 0.1 // 10% tax
+)
 
-export const selectCartTotal = (state: RootState) => {
-  return selectCartSubtotal(state) + selectCartTax(state)
-}
+export const selectCartTotal = createSelector(
+  [selectCartSubtotal, selectCartTax],
+  (subtotal, tax) => subtotal + tax
+)
 
-export const selectCartItemCount = (state: RootState) => {
-  return state.cart.items.reduce((total, item) => total + item.quantity, 0)
-}
+export const selectCartItemCount = createSelector(
+  [selectCartItems],
+  (items) => items.reduce((total, item) => total + item.quantity, 0)
+)
 
