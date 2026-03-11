@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAppSelector } from '@/store/hooks'
 import { selectCartItems, selectCartSubtotal, selectCartTax, selectCartTotal, selectUser, selectProfile } from '@/store/selectors'
+import { ensureUserProfile } from '@/lib/auth/profileUtils'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { PaymentMethod } from '@/types'
@@ -27,59 +28,27 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
   const tax = useAppSelector(selectCartTax)
   const total = useAppSelector(selectCartTotal)
   
-  // Read auth state directly from Redux (already synced and persisted by useAuth in parent components)
   const user = useAppSelector(selectUser)
   const profile = useAppSelector(selectProfile)
   const supabase = createClient()
-
-  // Minimal auth check - only log if there's an issue
-  useEffect(() => {
-    if (isOpen && (!user || !profile)) {
-      console.warn('⚠️ CheckoutModal opened without auth state')
-    }
-  }, [isOpen, user, profile])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      // If Redux state is empty, try to get from Supabase session as fallback
-      let currentUser = user
-      let currentProfile = profile
-
-      if (!currentUser || !currentProfile) {
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (session?.user) {
-          // Get profile from database
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          
-          if (profileError || !profileData) {
-            toast.error('Failed to load user profile. Please login again.')
-            setLoading(false)
-            setTimeout(() => window.location.href = '/login', 1500)
-            return
-          }
-          
-          currentUser = session.user
-          currentProfile = profileData
-        } else {
-          toast.error('You must be logged in. Please login again.')
-          setLoading(false)
-          setTimeout(() => window.location.href = '/login', 1500)
-          return
-        }
+      if (!user) {
+        toast.error('You must be logged in. Please login again.')
+        setTimeout(() => window.location.href = '/login', 1500)
+        return
       }
 
+      // Ensure user has a profile
+      const currentProfile = await ensureUserProfile(user.id)
+
       // Check if profile is active
-      if (!currentProfile || !currentProfile.is_active) {
+      if (!currentProfile.is_active) {
         toast.error('Your account is pending admin approval.')
-        setLoading(false)
         return
       }
 
@@ -92,7 +61,7 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
         .from('sales')
         .insert({
           sale_number: saleNumber,
-          user_id: currentUser.id,
+          user_id: user.id,
           customer_name: customerName || null,
           subtotal: subtotal,
           tax: tax,
@@ -144,7 +113,7 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
     } finally {
       setLoading(false)
     }
-  }, [user, profile, supabase, items, subtotal, tax, total, customerName, paymentMethod, onComplete])
+  }, [user, items, subtotal, tax, total, customerName, paymentMethod, onComplete])
 
   const paymentMethods = useMemo(() => [
     { value: 'cash' as PaymentMethod, label: 'Cash', icon: Banknote },

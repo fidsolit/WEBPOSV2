@@ -24,6 +24,18 @@ export function useAuth() {
 
   const supabase = createClient()
 
+  // Safety timeout - don't stay in loading state forever
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn('Auth loading timeout - forcing completion')
+        setLoading(false)
+      }
+    }, 5000) // 5 second timeout
+
+    return () => clearTimeout(timeout)
+  }, [loading])
+
   useEffect(() => {
     let isMounted = true
 

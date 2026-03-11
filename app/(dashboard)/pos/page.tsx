@@ -24,6 +24,7 @@ import CheckoutModal from "@/components/pos/CheckoutModal";
 import ProductCard from "@/components/pos/ProductCard";
 import ProductTableRow from "@/components/pos/ProductTableRow";
 import CartItem from "@/components/pos/CartItem";
+import { playSuccessBeep } from "@/lib/utils/soundUtils";
 
 export default function POSPage() {
   const [products, setProducts] = useState<ProductWithCategory[]>([]);

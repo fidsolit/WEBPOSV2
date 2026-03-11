@@ -13,7 +13,7 @@ import ProductModal from '@/components/products/ProductModal'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function ProductsPage() {
-  const { permissions } = useAuth()
+  const { permissions, loading: authLoading } = useAuth()
   const [products, setProducts] = useState<ProductWithCategory[]>([])
   const [filteredProducts, setFilteredProducts] = useState<ProductWithCategory[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -29,14 +29,18 @@ export default function ProductsPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    loadProducts()
-  }, [currentPage])
+    if (!authLoading) {
+      loadProducts()
+    }
+  }, [currentPage, authLoading])
 
   useEffect(() => {
     filterProducts()
   }, [searchQuery, products])
 
   const loadProducts = async () => {
+    if (authLoading) return // Don't load if auth is still loading
+    
     setLoading(true)
     try {
       const from = (currentPage - 1) * itemsPerPage
@@ -48,13 +52,17 @@ export default function ProductsPage() {
         .order('name')
         .range(from, to)
 
-      if (error) throw error
+      if (error) {
+        console.error('Products query error:', error)
+        throw error
+      }
+      
       setProducts((data as any) || [])
       setFilteredProducts((data as any) || [])
       setTotalCount(count || 0)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading products:', error)
-      toast.error('Failed to load products')
+      toast.error(error.message || 'Failed to load products')
     } finally {
       setLoading(false)
     }
@@ -118,12 +126,14 @@ export default function ProductsPage() {
     loadProducts()
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading products...</p>
+          <p className="mt-4 text-gray-600">
+            {authLoading ? 'Loading authentication...' : 'Loading products...'}
+          </p>
         </div>
       </div>
     )

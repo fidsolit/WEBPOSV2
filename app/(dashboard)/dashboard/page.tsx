@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { 
@@ -91,36 +91,32 @@ export default function DashboardPage() {
     }
   }
 
-  const statCards = [
+  const statCards = useMemo(() => [
     {
       title: "Today's Sales",
       value: `₱${stats.todaySales.toFixed(2)}`,
       icon: Coins,
       color: 'bg-green-500',
-      change: '+12.5%',
     },
     {
       title: 'Transactions',
       value: stats.todayTransactions.toString(),
       icon: ShoppingBag,
       color: 'bg-blue-500',
-      change: '+8.2%',
     },
     {
       title: 'Total Products',
       value: stats.totalProducts.toString(),
       icon: Package,
       color: 'bg-purple-500',
-      change: '—',
     },
     {
       title: 'Low Stock Items',
       value: stats.lowStockProducts.toString(),
       icon: TrendingUp,
       color: 'bg-orange-500',
-      change: '-3.1%',
     },
-  ]
+  ], [stats])
 
   if (loading) {
     return (
@@ -176,10 +172,7 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-gray-600">{stat.title}</p>
                     <p className="text-2xl font-bold text-gray-900 mt-2">{stat.value}</p>
                     <p className="text-sm text-gray-500 mt-1">
-                      <span className={stat.change.startsWith('+') ? 'text-green-600' : stat.change.startsWith('-') ? 'text-red-600' : ''}>
-                        {stat.change}
-                      </span>
-                      {' '}from yesterday
+                      {stat.title === 'Total Products' ? 'Active inventory' : 'Current period'}
                     </p>
                   </div>
                   <div className={`${stat.color} p-3 rounded-full`}>
