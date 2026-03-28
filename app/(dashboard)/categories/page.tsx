@@ -35,7 +35,7 @@ function CategoriesContent() {
 
   useEffect(() => {
     loadCategories()
-  }, [])
+  }, [permissions])
 
   useEffect(() => {
     if (selectedCategory) {

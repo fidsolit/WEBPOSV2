@@ -10,12 +10,14 @@ import { useAppDispatch } from '@/store/hooks'
 import { setAuth } from '@/store/slices/authSlice'
 import { setTokenInStorage } from '@/lib/jwt/client'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth();
   const [isPending, startTransition] = useTransition()
   const dispatch = useAppDispatch()
   const supabase = createClient()
@@ -27,6 +29,13 @@ export default function LoginPage() {
       window.history.pushState(null, '', window.location.href)
     }
   }, [])
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace('/dashboard');
+    }
+  }, [authLoading, user, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
