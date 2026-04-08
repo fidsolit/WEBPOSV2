@@ -1,92 +1,103 @@
-'use client'
+"use client";
 
-import { useState, useTransition, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { loginAction } from '@/app/actions/auth'
-import toast from 'react-hot-toast'
-import { ShoppingCart, Lock, Mail } from 'lucide-react'
-import Link from 'next/link'
-import { useAppDispatch } from '@/store/hooks'
-import { setAuth } from '@/store/slices/authSlice'
-import { setTokenInStorage } from '@/lib/jwt/client'
-import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/hooks/useAuth'
+import { useState, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { loginAction } from "@/app/actions/auth";
+import toast from "react-hot-toast";
+import { ShoppingCart, Lock, Mail } from "lucide-react";
+import Link from "next/link";
+import { useAppDispatch } from "@/store/hooks";
+import { setAuth } from "@/store/slices/authSlice";
+import { setTokenInStorage } from "@/lib/jwt/client";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [isPending, startTransition] = useTransition()
-  const dispatch = useAppDispatch()
-  const supabase = createClient()
+  const [isPending, startTransition] = useTransition();
+  const dispatch = useAppDispatch();
+  const supabase = createClient();
 
   // Prevent back navigation after logout
   useEffect(() => {
-    window.history.pushState(null, '', window.location.href)
+    window.history.pushState(null, "", window.location.href);
     window.onpopstate = () => {
-      window.history.pushState(null, '', window.location.href)
-    }
-  }, [])
+      window.history.pushState(null, "", window.location.href);
+    };
+  }, []);
 
   // Redirect to dashboard if already authenticated
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace('/dashboard');
+      router.replace("/dashboard");
     }
   }, [authLoading, user, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      const result = await loginAction(email, password)
+      const result = await loginAction(email, password);
+
+      // Debug: print server action response for diagnosis
+      console.debug("loginAction result:", result);
 
       if (result.error) {
-        toast.error(result.error)
-        setLoading(false)
-        return
+        toast.error(result.error);
+        setLoading(false);
+        console.log("Login failed:", result.error, "fidel");
+        return;
       }
 
       if (result.success && result.user && result.profile && result.token) {
         // Set session in client-side Supabase
         if (result.session) {
-          await supabase.auth.setSession({
-            access_token: result.session.access_token,
-            refresh_token: result.session.refresh_token,
-          })
+          try {
+            await supabase.auth.setSession({
+              access_token: result.session.access_token,
+              refresh_token: result.session.refresh_token,
+            });
+            console.debug("Client supabase session set");
+          } catch (err) {
+            console.error("Error setting client supabase session", err);
+          }
         }
-        
+
         // Store JWT token and dispatch to Redux
-        setTokenInStorage(result.token)
-        dispatch(setAuth({
-          user: result.user,
-          profile: result.profile,
-          token: result.token,
-        }))
-        
+        setTokenInStorage(result.token);
+        dispatch(
+          setAuth({
+            user: result.user,
+            profile: result.profile,
+            token: result.token,
+          }),
+        );
+
         // Wait for redux-persist to save
-        await new Promise(resolve => setTimeout(resolve, 300))
-        
-        toast.success('Login successful!')
-        window.location.href = '/dashboard'
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        toast.success("Login successful!");
+        router.push("/dashboard");
       } else {
-        toast.error('Login failed: Incomplete data received')
-        setLoading(false)
+        toast.error("Login failed: Incomplete data received");
+        setLoading(false);
       }
     } catch (error) {
-      console.error('Login error:', error)
-      toast.error('An error occurred during login')
-      setLoading(false)
+      console.error("Login error:", error);
+      toast.error("An error occurred during login");
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700">
       <div className="absolute inset-0 bg-black opacity-10"></div>
-      
+
       <div className="relative z-10 w-full max-w-md px-6">
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           {/* Logo */}
@@ -108,7 +119,10 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-6">
             {/* Email Input */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Email Address
               </label>
               <div className="relative">
@@ -129,7 +143,10 @@ export default function LoginPage() {
 
             {/* Password Input */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Password
               </label>
               <div className="relative">
@@ -154,15 +171,18 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
 
           {/* Sign Up Link */}
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link href="/signup" className="text-primary-600 hover:text-primary-700 font-semibold">
+              Don't have an account?{" "}
+              <Link
+                href="/signup"
+                className="text-primary-600 hover:text-primary-700 font-semibold"
+              >
                 Sign up
               </Link>
             </p>
@@ -182,6 +202,5 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
-  )
+  );
 }
-
