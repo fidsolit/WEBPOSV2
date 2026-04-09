@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { PaymentMethod } from '@/types'
 import { CreditCard, Wallet, Banknote } from 'lucide-react'
+import { useRouter } from 'next/navigation';
 
 interface CheckoutModalProps {
   isOpen: boolean
@@ -27,7 +28,7 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
   const subtotal = useAppSelector(selectCartSubtotal)
   const tax = useAppSelector(selectCartTax)
   const total = useAppSelector(selectCartTotal)
-  
+ const router= useRouter();
   const user = useAppSelector(selectUser)
   const profile = useAppSelector(selectProfile)
   const supabase = createClient()
@@ -38,8 +39,8 @@ export default function CheckoutModal({ isOpen, onClose, onComplete }: CheckoutM
 
     try {
       if (!user) {
-        toast.error('You must be logged in. Please login again.')
-        setTimeout(() => window.location.href = '/login', 1500)
+        toast.error('You must be logged in. Please login again. Redirecting to login page...')
+        setTimeout(() => router.push('/login'), 1500)
         return
       }
 

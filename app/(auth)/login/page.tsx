@@ -33,7 +33,7 @@ export default function LoginPage() {
   // Redirect to dashboard if already authenticated
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace('/dashboard');
+     router.push ('/dashboard')
     }
   }, [authLoading, user, router]);
 
@@ -71,7 +71,7 @@ export default function LoginPage() {
         await new Promise(resolve => setTimeout(resolve, 300))
         
         toast.success('Login successful!')
-        window.location.href = '/dashboard'
+       router.push('/dashboard')
       } else {
         toast.error('Login failed: Incomplete data received')
         setLoading(false)
@@ -122,7 +122,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
-                  placeholder="you@example.com"
+                  placeholder="you@gmail.com"
                 />
               </div>
             </div>

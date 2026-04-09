@@ -140,7 +140,8 @@
 
     return (
       <div>
-        <div className="mb-8">
+        <div className="mb-8 border-b pb-4 bg-red">
+          {/* <---fidel */}
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-2">
             {format(new Date(), 'EEEE, MMMM d, yyyy')}
