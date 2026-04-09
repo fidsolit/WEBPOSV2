@@ -9,9 +9,12 @@ export async function clearAuthState() {
   
   // Clear redux-persist storage
   try {
-    await persistor.purge()
-    // Also clear from localStorage directly
-    localStorage.removeItem('persist:root')
+    // persistor may be undefined during SSR; only call purge when available
+    if (typeof window !== 'undefined' && persistor) {
+      await persistor.purge()
+      // Also clear from localStorage directly
+      localStorage.removeItem('persist:root')
+    }
   } catch (error) {
     console.error('Error clearing persisted state:', error)
   }

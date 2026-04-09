@@ -1,40 +1,43 @@
-'use server'
+"use server";
 
-import { createServerClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
-import { generateToken } from '@/lib/jwt/token'
+import { createServerClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { generateToken } from "@/lib/jwt/token";
 
 export async function loginAction(email: string, password: string) {
-  const supabase = createServerClient()
+  const supabase = createServerClient();
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
-  })
+  });
 
   if (error) {
-    return { error: error.message }
+    return { error: error.message };
   }
 
   if (!data.user) {
-    return { error: 'Login failed' }
+    return { error: "Login failed" };
   }
 
   // Check if user is approved
   const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', data.user.id)
-    .single()
+    .from("profiles")
+    .select("*")
+    .eq("id", data.user.id)
+    .single();
 
   if (profileError) {
-    return { error: 'Error loading profile' }
+    return { error: "Error loading profile" };
   }
 
   if (!profile?.is_active) {
-    await supabase.auth.signOut()
-    return { error: 'Your account is pending admin approval. Please wait for activation.' }
+    await supabase.auth.signOut();
+    return {
+      error:
+        "Your account is pending admin approval. Please wait for activation.",
+    };
   }
 
   // Generate JWT token
@@ -42,39 +45,53 @@ export async function loginAction(email: string, password: string) {
     userId: data.user.id,
     email: data.user.email!,
     role: profile.role,
-  })
+  });
 
   // Set session cookies
   if (data.session) {
-    const cookieStore = cookies()
+    const cookieStore = cookies();
+    const useSecureCookies =
+      process.env.NEXT_PUBLIC_USE_SECURE_COOKIES === "true";
     // Set Supabase token
-    cookieStore.set('sb-auth-token', data.session.access_token, {
+    cookieStore.set("sb-auth-token", data.session.access_token, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: useSecureCookies,
+      sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7, // 7 days
-    })
-    
+    });
+
     // Set custom JWT token
-    cookieStore.set('jwt-token', jwtToken, {
+    cookieStore.set("jwt-token", jwtToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: useSecureCookies,
+      sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7, // 7 days
-    })
+    });
   }
 
-  return { 
-    success: true, 
-    user: data.user, 
-    profile, 
+  // Debug: return supabase session info to help diagnose client issues
+  console.debug(
+    "loginAction: user=",
+    data.user?.id,
+    "session=",
+    !!data.session,
+  );
+
+  return {
+    success: true,
+    user: data.user,
+    profile,
     token: jwtToken,
-    session: data.session  // Return session for client-side Supabase
-  }
+    session: data.session, // Return session for client-side Supabase
+  };
 }
 
-export async function signupAction(email: string, password: string, fullName: string) {
-  const supabase = createServerClient()
+export async function signupAction(
+  email: string,
+  password: string,
+  fullName: string,
+) {
+  const supabase = createServerClient();
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -84,54 +101,58 @@ export async function signupAction(email: string, password: string, fullName: st
         full_name: fullName,
       },
     },
-  })
+  });
 
   if (error) {
-    return { error: error.message }
+    return { error: error.message };
   }
 
   if (data.user) {
     // Set user as inactive by default
     await supabase
-      .from('profiles')
+      .from("profiles")
       .update({ is_active: false })
-      .eq('id', data.user.id)
+      .eq("id", data.user.id);
   }
 
-  return { success: true }
+  return { success: true };
 }
 
 export async function logoutAction() {
-  const supabase = createServerClient()
-  
+  const supabase = createServerClient();
+
   try {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut();
   } catch (error) {
-    console.error('Server logout error:', error)
+    console.error("Server logout error:", error);
   }
-  
+
   // Clear all cookies
-  const cookieStore = cookies()
-  const allCookies = cookieStore.getAll()
-  
+  const cookieStore = cookies();
+  const allCookies = cookieStore.getAll();
+
   // Delete all auth-related cookies
-  allCookies.forEach(cookie => {
-    if (cookie.name.includes('sb-') || cookie.name.includes('supabase') || cookie.name.includes('jwt-') || cookie.name.includes('persist:')) {
-      cookieStore.delete(cookie.name)
+  allCookies.forEach((cookie) => {
+    if (
+      cookie.name.includes("sb-") ||
+      cookie.name.includes("supabase") ||
+      cookie.name.includes("jwt-") ||
+      cookie.name.includes("persist:")
+    ) {
+      cookieStore.delete(cookie.name);
     }
-  })
-  
-  redirect('/login')
+  });
+
+  redirect("/login");
 }
 
 export async function verifyTokenAction(token: string) {
-  const cookieStore = cookies()
-  const storedToken = cookieStore.get('jwt-token')
-  
-  if (!storedToken || storedToken.value !== token) {
-    return { valid: false, error: 'Invalid token' }
-  }
-  
-  return { valid: true }
-}
+  const cookieStore = cookies();
+  const storedToken = cookieStore.get("jwt-token");
 
+  if (!storedToken || storedToken.value !== token) {
+    return { valid: false, error: "Invalid token" };
+  }
+
+  return { valid: true };
+}

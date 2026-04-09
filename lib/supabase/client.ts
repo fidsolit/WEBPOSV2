@@ -1,4 +1,4 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 export const createClient = () =>
   createSupabaseClient(
@@ -9,8 +9,8 @@ export const createClient = () =>
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        storage:
+          typeof window !== "undefined" ? window.localStorage : undefined,
       },
-    }
-  )
-
+    },
+  );
