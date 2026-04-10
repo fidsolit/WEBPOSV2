@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { loginAction } from "@/app/actions/auth";
 import toast from "react-hot-toast";
-import { ShoppingCart, Lock, Mail } from "lucide-react";
+import { ShoppingCart, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useAppDispatch } from "@/store/hooks";
 import { setAuth } from "@/store/slices/authSlice";
@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [isPending, startTransition] = useTransition();
@@ -33,7 +34,7 @@ export default function LoginPage() {
   // Redirect to dashboard if already authenticated
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace('/dashboard');
+      router.replace("/dashboard");
     }
   }, [authLoading, user, router]);
 
@@ -79,10 +80,11 @@ export default function LoginPage() {
         );
 
         // Wait for redux-persist to save
-        await new Promise(resolve => setTimeout(resolve, 300))
-        
-        toast.success('Login successful!')
-        window.location.href = '/dashboard'
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        toast.success("Login successful!");
+
+        router.push("/dashboard");
       } else {
         toast.error("Login failed: Incomplete data received");
         setLoading(false);
@@ -155,13 +157,27 @@ export default function LoginPage() {
                 </div>
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                  className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
                   placeholder="••••••••"
+                  aria-label="Password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500"
+                  aria-pressed={showPassword}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
               </div>
             </div>
 
