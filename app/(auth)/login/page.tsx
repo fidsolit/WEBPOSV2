@@ -63,7 +63,9 @@ export default function LoginPage() {
               access_token: result.session.access_token,
               refresh_token: result.session.refresh_token,
             });
+
             console.debug("Client supabase session set");
+            alert("Client supabase session set successfully");
           } catch (err) {
             console.error("Error setting client supabase session", err);
           }
@@ -71,6 +73,7 @@ export default function LoginPage() {
 
         // Store JWT token and dispatch to Redux
         setTokenInStorage(result.token);
+        console.log("Token stored in localStorage:", result.token);
         dispatch(
           setAuth({
             user: result.user,
