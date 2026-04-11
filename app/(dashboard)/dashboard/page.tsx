@@ -39,18 +39,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const { permissions, user, loading: authLoading } = useAuth();
   const supabase = createClient();
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace("/login");
-    } else if (permissions) {
-      loadDashboardData();
-    }
-  }, [permissions, user, authLoading]);
-  // useEffect(() => {
-  //   loadDashboardData()
-  // }, [])
-
+  // The data loader used by the effect below. Declared before hooks/returns
+  // so hooks are always called in the same order across renders.
   const loadDashboardData = async () => {
     try {
       const today = new Date();
@@ -82,7 +72,7 @@ export default function DashboardPage() {
 
       // Get pending users count (admin only)
       let pendingUsers = 0;
-      if (permissions.canManageUsers) {
+      if (permissions?.canManageUsers) {
         const { data: usersData } = await supabase
           .from("profiles")
           .select("id")
@@ -104,6 +94,16 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+
+  // Redirect and data load effect. Declared early so hooks are always used in
+  // the same order (prevents hooks mismatch errors).
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/login");
+    } else if (permissions) {
+      loadDashboardData();
+    }
+  }, [permissions, user, authLoading]);
 
   const statCards = useMemo(
     () => [
@@ -135,6 +135,36 @@ export default function DashboardPage() {
     [stats],
   );
 
+  // Prevent rendering dashboard content while auth state is resolving.
+  // This avoids flashing dashboard UI to unauthenticated users before the
+  // client-side redirect runs in the effect above.
+  if (authLoading) {
+    return (
+      <div
+        className="flex items-center justify-center h-96"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="text-center">
+          <div
+            className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"
+            aria-hidden="true"
+          ></div>
+          <p className="sr-only">Checking authentication</p>
+          <p className="mt-4 text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If auth finished loading and there's no user, the effect above will
+  // redirect to /login. Return null here to avoid rendering the dashboard
+  // before the redirect completes.
+  if (!authLoading && !user) return null;
+  // useEffect(() => {
+  //   loadDashboardData()
+  // }, [])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -156,7 +186,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Pending Users Alert (Admin Only) */}
-      {permissions.canManageUsers && stats.pendingUsers > 0 && (
+      {permissions?.canManageUsers && stats.pendingUsers > 0 && (
         <div className="mb-6">
           <Link href="/users">
             <div className="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-4 hover:bg-orange-100 transition-colors cursor-pointer">
@@ -247,7 +277,7 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-600">Sales history</p>
               </div>
             </a>
-            {permissions.canManageUsers && (
+            {permissions?.canManageUsers && (
               <a
                 href="/inventory"
                 className="flex items-center p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
